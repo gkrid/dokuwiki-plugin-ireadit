@@ -1,0 +1,7 @@
+base talkvisit 
+author Szymon Olewniczak
+email szymon.olewniczak@rid.pl
+date 2013-04-24
+name talkvisit
+desc Add the page visitor (CTRL+Y) to any page in :talk: namespace.
+url http://www.dokuwiki.org/plugin:dtable
