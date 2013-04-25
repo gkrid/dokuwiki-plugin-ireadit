@@ -24,9 +24,12 @@ class action_plugin_talkvisit extends DokuWiki_Action_Plugin {
     function add_signature($event)
     {
 	global $INFO;
-	$id = $INFO['id'];
+	//$id = $INFO['id'];
 	
-	if(strpos($id, 'talk') === 0 && is_array($INFO['userinfo']))
+	$id = $event->data[2];
+	$ns = $event->data[1];
+
+	if($ns == 'talk' && is_array($INFO['userinfo']))
 	{
 	    $userinfo = $INFO['userinfo'];
 	    $name = $userinfo['name'];
@@ -35,7 +38,7 @@ class action_plugin_talkvisit extends DokuWiki_Action_Plugin {
 	    $file = $INFO['filepath'];
 
 	    //create signature
-	    $sign = "  * [[$email|$name]] - $date\n";
+	    $sign = "  * [[$email|$name]]";
 
 	    //check if signature doesn't exist
 	    $sign_ex = false;
@@ -44,15 +47,20 @@ class action_plugin_talkvisit extends DokuWiki_Action_Plugin {
 		$file_lines = file($file);
 		foreach($file_lines as $line)
 		{
-		    if($line == $sign)
+		    if(strpos($line, $sign) === 0)
 			$sign_ex = true;
 		}
-	    }
-	    if($sign_ex == false)
-	    {
-		$fp = fopen($file, 'a');
-		fwrite($fp, $sign);
-		fclose($fp);
+		if($sign_ex == false)
+		{
+		    $fp = fopen($file, 'a');
+		    //first free line isn't empty
+		    if($file_lines[count($file_lines)-1] != '')
+		    {
+			fwrite($fp, "\n");
+		    }
+		    fwrite($fp, $sign." - $date\n");
+		    fclose($fp);
+		}
 	    }
 	}
     }
