@@ -16,53 +16,60 @@ require_once DOKU_PLUGIN.'syntax.php';
  * All DokuWiki plugins to extend the parser/rendering mechanism
  * need to inherit from this class
  */
-class action_plugin_talkvisit extends DokuWiki_Action_Plugin {
+class action_plugin_ireadit extends DokuWiki_Action_Plugin {
 
     function register(&$controller) {
-	    $controller->register_hook('IO_WIKIPAGE_READ', 'BEFORE',  $this, 'add_signature');
+	$controller->register_hook('TPL_CONTENT_DISPLAY', 'AFTER',  $this, 'add_link_and_list');
+	$controller->register_hook('IO_WIKIPAGE_WRITE', 'AFTER',  $this, 'remove_meta');
+	$controller->register_hook('ACTION_ACT_PREPROCESS', 'BEFORE',  $this, 'add_to_ireadit_metadata');
     }
-    function add_signature($event)
+    function add_link_and_list($event)
     {
-	global $INFO;
-	//$id = $INFO['id'];
-	
-	$id = $event->data[2];
-	$ns = $event->data[1];
-
-	if($ns == 'talk' && is_array($INFO['userinfo']))
+	global $ID, $INFO;
+	if(p_get_metadata($ID, 'plugin_ireadit') == true)
 	{
-	    $userinfo = $INFO['userinfo'];
-	    $name = $userinfo['name'];
-	    $email = $userinfo['mail'];
-	    $date = date('Y-m-d H:i');
-	    $file = $INFO['filepath'];
-
-	    //create signature
-	    $sign = "  * [[$email|$name]]";
-
-	    //check if signature doesn't exist
-	    $sign_ex = false;
-	    if(file_exists($file))
+	    $readers = p_get_metadata($ID, 'plugin_ireadit_readers');
+	    if( $readers == NULL || ( 
+		is_array($INFO['userinfo']) && 
+		! in_array($INFO['userinfo']['name'], $readers[0]) ) )
 	    {
-		$file_lines = file($file);
-		foreach($file_lines as $line)
+		echo '<a href="?id='.$ID.'&do=ireadit">'.$this->getLang('ireadit').'</a>';
+	    } 
+	    if($readers != NULL)
+	    {
+		echo '<h3>'.$this->getLang('readit_header').'</h3>';
+		echo '<ul>';
+		for($i=0;$i<count($readers[0]);$i++)
 		{
-		    if(strpos($line, $sign) === 0)
-			$sign_ex = true;
+		   echo '<li>'.$readers[0][$i].' - '.date('d/m/Y H:i', $readers[1][$i]).'</li>'; 
 		}
-		if($sign_ex == false)
-		{
-		    $fp = fopen($file, 'a');
-		    //first free line isn't empty
-		    if($file_lines[count($file_lines)-1] != '')
-		    {
-			fwrite($fp, "\n");
-		    }
-		    fwrite($fp, $sign." - $date\n");
-		    fclose($fp);
-		}
+		echo '</ul>';
 	    }
 	}
     }
-    
+    function add_to_ireadit_metadata($event)
+    {
+	global $ACT, $ID, $INFO;
+	if($event->data == 'ireadit')
+	{
+	    $readers = p_get_metadata($ID, 'plugin_ireadit_readers');
+	    if($readers == NULL)
+	    {
+		$readers = array(array(), array());
+	    }
+	    if(is_array($INFO['userinfo']) && ! in_array($INFO['userinfo']['name'], $readers[0]))
+	    {
+		$readers[0][] = $INFO['userinfo']['name'];
+		$readers[1][] = time();
+	    }	
+	    p_set_metadata($ID, array('plugin_ireadit_readers' => $readers));
+
+	    $ACT = 'show';
+	}
+    }
+    function remove_meta()
+    {
+	global $ID;
+	p_set_metadata($ID,array('plugin_ireadit_readers' => NULL));
+    }
 }
