@@ -25,7 +25,11 @@ class action_plugin_ireadit extends DokuWiki_Action_Plugin {
     }
     function add_link_and_list($event)
     {
-	global $ID, $INFO;
+	global $ID, $INFO, $ACT;
+
+	if($ACT != 'show')
+	    return;
+
 	if(p_get_metadata($ID, 'plugin_ireadit') == true)
 	{
 	    $readers = p_get_metadata($ID, 'plugin_ireadit_readers');
