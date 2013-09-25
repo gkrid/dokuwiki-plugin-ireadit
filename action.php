@@ -33,7 +33,10 @@ class action_plugin_ireadit extends DokuWiki_Action_Plugin {
 	if(p_get_metadata($ID, 'plugin_ireadit') == true)
 	{
 	    $readers = p_get_metadata($ID, 'plugin_ireadit_readers');
-	    echo '<div class="no-print">';
+	    echo '<div';
+		if ($this->getConf('print') == 0)
+			echo ' class="no-print"';
+		echo '>';
 	    if( $readers == NULL || ( 
 		is_array($INFO['userinfo']) && 
 		! in_array($INFO['userinfo']['name'], $readers[0]) ) )
