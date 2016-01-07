@@ -1,7 +1,7 @@
 base ireadit
 author Szymon Olewniczak
 email szymon.olewniczak@rid.pl
-date 2013-04-24
+date 2014-05-29
 name ireadit
 desc When you add ~~IREADIT~~ tag to your wiki page, visitors would be asked to confirm that they've read the current wiki page
 url http://www.dokuwiki.org/plugin:ireadit
