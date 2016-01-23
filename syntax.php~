@@ -35,7 +35,7 @@ class syntax_plugin_ireadit extends DokuWiki_Syntax_Plugin {
 	return true;
     }
 
-    function render($mode, Doku_Renderer $renderer, $data) {
+    function render($mode, &$renderer, $data) {
 	if($mode == 'xhtml')
        	{
 	    return true;
