@@ -1,11 +1,4 @@
 <?php
-/**
- * Plugin Now: Inserts a timestamp.
- * 
- * @license    GPL 3 (http://www.gnu.org/licenses/gpl.html)
- * @author     Szymon Olewniczak <szymon.olewniczak@rid.pl>
- */
-
 // must be run within DokuWiki
 if(!defined('DOKU_INC')) die();
 
@@ -37,12 +30,9 @@ class syntax_plugin_ireadit extends DokuWiki_Syntax_Plugin {
 
     function render($mode, Doku_Renderer $renderer, $data) {
 	if($mode == 'xhtml')
-       	{
 	    return true;
-	}
-	elseif($mode == 'metadata')
-	{
-	    $renderer->meta['plugin_ireadit'] = true;
+	elseif($mode == 'metadata'){
+	    $renderer->meta['plugin_ireadit_display'] = true;
 	    return true;
         }
         return false;
