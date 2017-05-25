@@ -1,7 +1,7 @@
 base ireadit
 author Szymon Olewniczak
 email (my first name) [at] imz [dot] re
-date 2016-01-23
+date 2016-03-22
 name ireadit
-desc When you add ~~IREADIT~~ tag to your wiki page, visitors would be asked to confirm that they've read the current wiki page
+desc Allow dokuwiki users confirm that they have read the page.
 url http://www.dokuwiki.org/plugin:ireadit
