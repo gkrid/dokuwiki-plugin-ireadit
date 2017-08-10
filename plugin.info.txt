@@ -1,6 +1,6 @@
 base ireadit
 author Szymon Olewniczak
-email (my first name) [at] imz [dot] re
+email solewniczak@rid.pl
 date 2016-03-22
 name ireadit
 desc Allow dokuwiki users confirm that they have read the page.
