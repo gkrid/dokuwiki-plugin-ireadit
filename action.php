@@ -58,7 +58,8 @@ class action_plugin_ireadit extends DokuWiki_Action_Plugin {
 		    ($all_users === FALSE && (in_array($INFO['client'], $users) || count(array_intersect($INFO['userinfo']['grps'], $groups)) > 0))
 		) if($REV == 0 && is_array($INFO['userinfo']) && !$this->has_read($readers, $INFO['client']))
 			echo '<a href="?id='.$ID.'&do=ireadit">'.$this->getLang('ireadit').'</a>';
-		
+
+		var_dump($readers);
 		if(count($readers) > 0){
 			echo '<h3>'.$this->getLang('readit_header').'</h3>';
 			echo '<ul>';
