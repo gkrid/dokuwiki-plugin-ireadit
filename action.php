@@ -64,7 +64,8 @@ class action_plugin_ireadit extends DokuWiki_Action_Plugin {
 			echo '<ul>';
 			foreach ($readers as $reader) {
 			   $udata = $auth->getUserData($reader['client'], false);
-			   echo '<li>'.$udata['name'].' - '.date('d/m/Y H:i', $reader['time']).'</li>';
+			   $name = $udata ? $udata['name'] : $reader['client'];
+			   echo '<li>' . $name . ' - '.date('d/m/Y H:i', $reader['time']).'</li>';
 			}
 
 			echo '</ul>';
