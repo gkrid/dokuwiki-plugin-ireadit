@@ -16,6 +16,11 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
         $controller->register_hook('TPL_CONTENT_DISPLAY', 'AFTER', $this, 'render_list');
         $controller->register_hook('ACTION_ACT_PREPROCESS', 'BEFORE', $this, 'handle_ireadit_action');
         $controller->register_hook('PARSER_METADATA_RENDER', 'AFTER', $this, 'updatre_ireadit_metadata');
+        $controller->register_hook('PLUGIN_NOTIFICATION_REGISTER_SOURCE', 'AFTER', $this, 'add_notifications_source');
+        $controller->register_hook('PLUGIN_NOTIFICATION_GATHER', 'AFTER', $this, 'add_notifications');
+        $controller->register_hook('PLUGIN_NOTIFICATION_CACHE_DEPENDENCIES', 'AFTER', $this, 'add_notification_cache_dependencies');
+
+
     }
 
     public function render_list()
@@ -45,7 +50,7 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
                                                 AND user = ?', $INFO['id'],
                                                     $last_change_date, $INFO['client']);
             if ($sqlite->res2single($res)) {
-                echo '<a href="' . wl($INFO['id'], array('do' => 'ireadit')) . '">' . $this->getLang('ireadit') . '</a>';
+                echo '<a href="' . wl($INFO['id'], ['do' => 'ireadit']) . '">' . $this->getLang('ireadit') . '</a>';
             }
         }
 
@@ -80,6 +85,7 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
         $ACT = 'show';
         if (!$INFO['client']) return;
 
+        /** @var \helper_plugin_ireadit_db $db_helper */
         $db_helper = plugin_load('helper', 'ireadit_db');
         $sqlite = $db_helper->getDB();
 
@@ -129,6 +135,52 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
             $timestamp = date('c');
             $sqlite->query('INSERT OR IGNORE INTO ireadit (page, rev, user) VALUES (?,?,?)',
                 $page, $last_change_date, $user);
+        }
+    }
+
+    public function add_notifications_source(Doku_Event $event)
+    {
+        $event->data[] = 'ireadit';
+    }
+
+    public function add_notification_cache_dependencies(Doku_Event $event)
+    {
+        if (!in_array('ireadit', $event->data['plugins'])) return;
+
+        /** @var \helper_plugin_ireadit_db $db_helper */
+        $db_helper = plugin_load('helper', 'ireadit_db');
+        $event->data['dependencies'][] = $db_helper->getDB()->getAdapter()->getDbFile();
+    }
+
+    public function add_notifications(Doku_Event $event)
+    {
+        if (!in_array('ireadit', $event->data['plugins'])) return;
+
+        /** @var \helper_plugin_ireadit_db $db_helper */
+        $db_helper = plugin_load('helper', 'ireadit_db');
+        $sqlite = $db_helper->getDB();
+
+        $user = $event->data['user'];
+
+        $res = $sqlite->query('SELECT page, rev FROM ireadit
+                                        WHERE timestamp IS NULL
+                                        AND user = ?
+                                        ORDER BY timestamp', $user);
+
+        $notifications = $sqlite->res2arr($res);
+
+        foreach ($notifications as $notification) {
+            $page = $notification['page'];
+            $rev = $notification['rev'];
+
+            $link = '<a href="' . wl($page) . '">' . $page . '</a>';
+            $full = sprintf($this->getLang('notification full'), $link);
+            $event->data['notifications'][] = [
+                'plugin' => 'ireadit',
+                'full' => $full,
+                'brief' => $link,
+                'timestamp' => (int)$rev
+            ];
         }
     }
 }

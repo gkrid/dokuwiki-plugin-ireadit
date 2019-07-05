@@ -13,10 +13,10 @@ if (!defined('DOKU_INC')) {
 
 class helper_plugin_ireadit extends DokuWiki_Plugin
 {
-    public function users_set($users=array(), $groups=array()) {
+    public function users_set($users=[], $groups=[]) {
         global $auth;
 
-        $set = array();
+        $set = [];
         if (empty($users) && empty($groups)) {
             $set = $auth->retrieveUsers();
         } else {

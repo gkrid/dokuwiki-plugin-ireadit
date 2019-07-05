@@ -36,8 +36,8 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
         }
         $to = $event->data['to'];
 
-        if (is_callable(array($this, "migration$to"))) {
-            $event->result = call_user_func(array($this, "migration$to"), $event->data);
+        if (is_callable([$this, "migration$to"])) {
+            $event->result = call_user_func([$this, "migration$to"], $event->data);
         }
     }
 
@@ -77,7 +77,7 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
         }
 
         $rii = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($datadir));
-        $pages = array();
+        $pages = [];
         foreach ($rii as $file) {
             if ($file->isDir()){
                 continue;
@@ -97,12 +97,12 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
             foreach ($meta as $rev => $data) {
                 if ($rev === '' || count($data) == 0) continue;
                 foreach ($data as $user_read) {
-                    $sqlite->storeEntry('ireadit', array(
+                    $sqlite->storeEntry('ireadit', [
                         'page' => $page,
                         'rev' => $rev,
                         'user' => $user_read['client'],
                         'timestamp' => date('c', $user_read['time'])
-                    ));
+                    ]);
                 }
             }
 
@@ -115,8 +115,8 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
             $match = trim(substr($matches[0], strlen('~~IREADIT'), -2));
             $splits = preg_split('/\s+/', $match, -1, PREG_SPLIT_NO_EMPTY);
 
-            $users = array();
-            $groups = array();
+            $users = [];
+            $groups = [];
             foreach ($splits as $split) {
                 if ($split[0] == '@') {
                     $group = substr($split, 1);
@@ -131,11 +131,11 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
             if ($usersToInsert) {
                 $last_change_date = p_get_metadata($page, 'last_change date');
                 foreach ($usersToInsert as $user => $info) {
-                    $this->insertOrIgnore($sqlite,'ireadit', array(
+                    $this->insertOrIgnore($sqlite,'ireadit', [
                         'page' => $page,
                         'rev' => $last_change_date,
                         'user' => $user
-                    ));
+                    ]);
                 }
             }
 

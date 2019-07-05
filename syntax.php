@@ -36,8 +36,8 @@ class syntax_plugin_ireadit extends DokuWiki_Syntax_Plugin
         $match = trim(substr($match, strlen('~~IREADIT'), -2));
         $splits = preg_split('/[\s:]+/', $match, -1, PREG_SPLIT_NO_EMPTY);
 
-        $users = array();
-        $groups = array();
+        $users = [];
+        $groups = [];
         foreach ($splits as $split) {
             if ($split[0] == '@') {
                 $group = substr($split, 1);
@@ -47,7 +47,7 @@ class syntax_plugin_ireadit extends DokuWiki_Syntax_Plugin
             }
         }
 
-        return array('users' => $users, 'groups' => $groups);
+        return ['users' => $users, 'groups' => $groups];
     }
 
     /**
