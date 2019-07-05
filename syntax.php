@@ -26,8 +26,6 @@ class syntax_plugin_ireadit extends DokuWiki_Syntax_Plugin
         return 99;
     }
 
-    private $users = array(), $groups = array(), $all_users = false;
-
     function connectTo($mode)
     {
         $this->Lexer->addSpecialPattern('~~IREADIT.*~~', $mode, 'plugin_ireadit');
@@ -35,14 +33,14 @@ class syntax_plugin_ireadit extends DokuWiki_Syntax_Plugin
 
     function handle($match, $state, $pos, Doku_Handler $handler)
     {
-        $match = trim(substr($match, strlen('~~IREADIT'), strlen($match) - 2));
-        $splits = preg_split('/\s+/', $match);
+        $match = trim(substr($match, strlen('~~IREADIT'), -2));
+        $splits = preg_split('/[\s:]+/', $match, -1, PREG_SPLIT_NO_EMPTY);
 
         $users = array();
         $groups = array();
         foreach ($splits as $split) {
             if ($split[0] == '@') {
-                $group = substr($match, 1);
+                $group = substr($split, 1);
                 $groups[] = $group;
             } else {
                 $users[] = $split;
@@ -52,21 +50,39 @@ class syntax_plugin_ireadit extends DokuWiki_Syntax_Plugin
         return array('users' => $users, 'groups' => $groups);
     }
 
-    function render($mode, Doku_Renderer $renderer, $data)
+    /**
+     * Render xhtml output or metadata
+     *
+     * @param string        $mode     Renderer mode (supported modes: xhtml)
+     * @param Doku_Renderer $renderer The renderer
+     * @param array         $data     The data from the handler() function
+     *
+     * @return bool If rendering was successful.
+     */
+
+    public function render($mode, Doku_Renderer $renderer, $data)
     {
-        if ($mode == 'xhtml')
-            return true;
-        elseif ($mode == 'metadata') {
-            $renderer->meta['plugin_ireadit_display'] = true;
-            $renderer->meta['plugin_ireadit_users'] = $data['users'];
-            $renderer->meta['plugin_ireadit_groups'] = $data['groups'];
-            $all_users = false;
-            if (empty($data['users']) && empty($data['groups'])) {
-                $all_users = true;
-            }
-            $renderer->meta['plugin_ireadit_all_users'] = $all_users;
+        if (!$data) {
+            return false;
+        }
+
+        $method = "render_$mode";
+        if (method_exists($this, $method)) {
+            call_user_func([$this, $method], $renderer, $data);
             return true;
         }
         return false;
+    }
+
+    /**
+     * Render metadata
+     *
+     * @param Doku_Renderer $renderer The renderer
+     * @param array         $data     The data from the handler() function
+     */
+    public function render_metadata(Doku_Renderer $renderer, $data)
+    {
+        $plugin_name = $this->getPluginName();
+        $renderer->meta['plugin'][$plugin_name] = $data;
     }
 }

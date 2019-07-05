@@ -62,12 +62,13 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
     protected function migration1($data)
     {
         global $conf;
-        /** @var $auth DokuWiki_Auth_Plugin */
-        global $auth;
 
         /** @var helper_plugin_sqlite $sqlite */
         $sqlite = $data['sqlite'];
         $db = $sqlite->getAdapter()->getDb();
+
+        /* @var \helper_plugin_ireadit $helper */
+        $helper = plugin_load('helper', 'ireadit');
 
 
         $datadir = $conf['datadir'];
@@ -92,27 +93,13 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
             //import historic data
             $meta = p_get_metadata($page, 'plugin_ireadit');
             if (!$meta) continue;
-            $date = p_get_metadata($page, 'date modified');
 
-            if (isset($meta[$date])) {
-                $meta[0] = $meta[$date];
-                unset($meta[$date]);
-            }
-
-            $current = null;
             foreach ($meta as $rev => $data) {
                 if ($rev === '' || count($data) == 0) continue;
-                $sqlite->storeEntry('ireadit', array(
-                    'page' => $page,
-                    'rev' => $rev
-                ));
-                $id = $db->lastInsertId();
-                if ($rev === 0) {
-                    $current = $id;
-                }
                 foreach ($data as $user_read) {
-                    $sqlite->storeEntry('ireadit_user', array(
-                        'ireadit_id' => $id,
+                    $sqlite->storeEntry('ireadit', array(
+                        'page' => $page,
+                        'rev' => $rev,
                         'user' => $user_read['client'],
                         'timestamp' => date('c', $user_read['time'])
                     ));
@@ -132,38 +119,21 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
             $groups = array();
             foreach ($splits as $split) {
                 if ($split[0] == '@') {
-                    $group = substr($match, 1);
+                    $group = substr($split, 1);
                     $groups[] = $group;
                 } else {
                     $users[] = $split;
                 }
             }
 
-            $usersToInsert = array();
-            if (empty($users) && empty($groups)) {
-                $usersToInsert = $auth->retrieveUsers();
-            } else {
-                $all_users = $auth->retrieveUsers();
-                foreach ($all_users as $user => $info) {
-                    if (in_array($user, $users)) {
-                        $usersToInsert[$user] = $info;
-                    } elseif (array_intersect($groups, $info['grps'])) {
-                        $usersToInsert[$user] = $info;
-                    }
-                }
-            }
+            $usersToInsert = $helper->users_set($users, $groups);
 
             if ($usersToInsert) {
-                if ($current === NULL) {
-                    $sqlite->storeEntry('ireadit', array(
-                        'page' => $page,
-                        'rev' => 0
-                    ));
-                    $current = $db->lastInsertId();
-                }
+                $last_change_date = p_get_metadata($page, 'last_change date');
                 foreach ($usersToInsert as $user => $info) {
-                    $this->insertOrIgnore($sqlite,'ireadit_user', array(
-                        'ireadit_id' => $current,
+                    $this->insertOrIgnore($sqlite,'ireadit', array(
+                        'page' => $page,
+                        'rev' => $last_change_date,
                         'user' => $user
                     ));
                 }

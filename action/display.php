@@ -11,140 +11,124 @@ require_once DOKU_PLUGIN . 'syntax.php';
  */
 class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
 {
-    function register(Doku_Event_Handler $controller)
+    public function register(Doku_Event_Handler $controller)
     {
-        $controller->register_hook('TPL_CONTENT_DISPLAY', 'AFTER', $this, 'add_link_and_list');
-        $controller->register_hook('ACTION_ACT_PREPROCESS', 'BEFORE', $this, 'add_to_ireadit_metadata');
+        $controller->register_hook('TPL_CONTENT_DISPLAY', 'AFTER', $this, 'render_list');
+        $controller->register_hook('ACTION_ACT_PREPROCESS', 'BEFORE', $this, 'handle_ireadit_action');
         $controller->register_hook('PARSER_METADATA_RENDER', 'AFTER', $this, 'updatre_ireadit_metadata');
-        $controller->register_hook('PARSER_CACHE_USE', 'BEFORE', $this, 'handle_cache_prepare');
     }
 
-    function has_read($readers, $who)
+    public function render_list()
     {
-        if (!is_array($readers))
-            return false;
-        foreach ($readers as $reader)
-            if ($reader['client'] == $who)
-                return true;
-        return false;
-    }
+        global $INFO, $ACT, $auth;
 
-    function add_link_and_list($event)
-    {
-        global $ID, $INFO, $ACT, $REV, $auth;
+        if ($ACT != 'show') return;
+        if (!p_get_metadata($INFO['id'], 'plugin ireadit')) return;
+        
 
-
-        /** @var \helper_plugin_sqlite $sqlite */
-        $sqlite = plugin_load('helper', 'ireadit_db')->getDB();
-
-        if ($ACT != 'show')
-            return;
-
-        if (!p_get_metadata($ID, 'plugin_ireadit_display'))
-            return;
-
-
-        $plugin_ireadit = p_get_metadata($ID, 'plugin_ireadit');
-        if ($REV == 0)
-            $date = p_get_metadata($ID, 'date modified');
-        else
-            $date = $REV;
-        $readers = $plugin_ireadit[$date];
+        /** @var \helper_plugin_ireadit_db $db_helper */
+        $db_helper = plugin_load('helper', 'ireadit_db');
+        $sqlite = $db_helper->getDB();
 
         echo '<div';
-        if ($this->getConf('print') == 0)
-            echo ' class="no-print"';
+        if ($this->getConf('print') == 0) {
+            echo' class="no-print"';
+        }
         echo '>';
 
-        //check if the user should read the page
-        $all_users = p_get_metadata($ID, 'plugin_ireadit_all_users');
-        $users = p_get_metadata($ID, 'plugin_ireadit_users');
-        $groups = p_get_metadata($ID, 'plugin_ireadit_groups');
+        $last_change_date = p_get_metadata($INFO['id'], 'last_change date');
 
-        //if we using old version of plugin varibles may not exist
-        if (
-            ($all_users === TRUE) ||
-            ($all_users === FALSE && (in_array($INFO['client'], $users) || count(array_intersect($INFO['userinfo']['grps'], $groups)) > 0))
-        ) if ($REV == 0 && is_array($INFO['userinfo']) && !$this->has_read($readers, $INFO['client']))
-            echo '<a href="?id=' . $ID . '&do=ireadit">' . $this->getLang('ireadit') . '</a>';
+        if ($INFO['rev'] == 0) {
+            $res = $sqlite->query('SELECT page FROM ireadit WHERE page = ?
+                                                AND rev = ?
+                                                AND timestamp IS NULL
+                                                AND user = ?', $INFO['id'],
+                                                    $last_change_date, $INFO['client']);
+            if ($sqlite->res2single($res)) {
+                echo '<a href="' . wl($INFO['id'], array('do' => 'ireadit')) . '">' . $this->getLang('ireadit') . '</a>';
+            }
+        }
 
+        $rev = !$INFO['rev'] ? $last_change_date : $INFO['rev'];
+        $res = $sqlite->query('SELECT user, timestamp FROM ireadit
+                                        WHERE page = ?
+                                        AND timestamp IS NOT NULL
+                                        AND rev = ?
+                                        ORDER BY timestamp', $INFO['id'], $rev);
+
+        $readers = $sqlite->res2arr($res);
         if (count($readers) > 0) {
             echo '<h3>' . $this->getLang('readit_header') . '</h3>';
             echo '<ul>';
             foreach ($readers as $reader) {
-                if (isset($reader['name'])) {
-                    $name = $reader['name'];
-                } elseif (isset($reader['client'])) {
-                    $udata = $auth->getUserData($reader['client'], false);
-                    $name = $udata ? $udata['name'] : $reader['client'];
-                }
-                echo '<li>' . $name . ' - ' . date('d/m/Y H:i', $reader['time']) . '</li>';
+                $udata = $auth->getUserData($reader['user'], false);
+                $name = $udata ? $udata['name'] : $reader['user'];
+                $time = strtotime($reader['timestamp']);
+                echo '<li>' . $name . ' - ' . date('d/m/Y H:i', $time) . '</li>';
             }
-
             echo '</ul>';
         }
+        
+
         echo '</div>';
     }
 
-    function updatre_ireadit_metadata($event)
+    public function handle_ireadit_action(Doku_Event $event)
     {
-        if (!is_array($event->data['persistent']['plugin_ireadit']))
-            $event->data['persistent']['plugin_ireadit'] = array();
-
-        $date = $event->data['persistent']['date']['modified'];
-        if (!isset($event->data['persistent']['plugin_ireadit'][$date]))
-            $event->data['persistent']['plugin_ireadit'][$date] = array();
-
-        $event->data['current']['plugin_ireadit'] = $event->data['persistent']['plugin_ireadit'];
-    }
-
-    function add_to_ireadit_metadata($event)
-    {
-        global $ACT, $ID, $INFO;
-        if ($event->data != 'ireadit')
-            return;
+        global $INFO, $ACT;
+        if ($event->data != 'ireadit') return;
         $ACT = 'show';
-        if (!is_array($INFO['userinfo']))
-            return;
+        if (!$INFO['client']) return;
 
-        //user can ireadit the page
-        $all_users = p_get_metadata($ID, 'plugin_ireadit_all_users');
-        $users = p_get_metadata($ID, 'plugin_ireadit_users');
-        $groups = p_get_metadata($ID, 'plugin_ireadit_groups');
-        if (!(
-            ($all_users === TRUE) ||
-            ($all_users === FALSE && (in_array($INFO['client'], $users) || count(array_intersect($INFO['userinfo']['grps'], $groups)) > 0))
-        )) return;
+        $db_helper = plugin_load('helper', 'ireadit_db');
+        $sqlite = $db_helper->getDB();
 
-        $plugin_ireadit = p_get_metadata($ID, 'plugin_ireadit');
-        $date = p_get_metadata($ID, 'date modified');
-        if (!is_array($plugin_ireadit))
-            $plugin_ireadit = array($date => array());
+        $last_change_date = p_get_metadata($INFO['id'], 'last_change date');
 
-        $readers = $plugin_ireadit[$date];
-        $client = $INFO['client'];
-        //check if user has read the page already
-        //check if user can
-        if (!$this->has_read($readers, $client)) {
-            $plugin_ireadit[$date][] = array('client' => $client, 'time' => time());
-            p_set_metadata($ID, array('plugin_ireadit' => $plugin_ireadit));
-        }
+        //check if user can "ireadit" the page and didn't "ireadit" already
+        $res = $sqlite->query('SELECT page FROM ireadit
+                                            WHERE page = ?
+                                            AND rev = ?
+                                            AND timestamp IS NULL
+                                            AND user = ?',
+                                        $INFO['id'], $last_change_date, $INFO['client']);
+        if (!$sqlite->res2single($res)) return;
+
+        $sqlite->query('UPDATE ireadit SET timestamp=? WHERE page=? AND rev=? AND user=?',
+            date('c'), $INFO['id'], $last_change_date, $INFO['client']);
     }
 
-    /**
-     * prepare the cache object for default _useCache action
-     */
-    function handle_cache_prepare(&$event, $param)
+    public function updatre_ireadit_metadata(Doku_Event $event)
     {
-        $cache =& $event->data;
+        //don't use ireadit here
+        if (!isset($event->data['current']['plugin']['ireadit'])) return;
+        $ireadit = $event->data['current']['plugin']['ireadit'];
 
-        // we're only interested in wiki pages
-        if (!isset($cache->page)) return;
-        if ($cache->mode != 'i') return;
+        $db_helper = plugin_load('helper', 'ireadit_db');
+        $sqlite = $db_helper->getDB();
 
-        // get meta data
-        $ireadit = p_get_metadata($cache->page, 'plugin_ireadit_display');
-        if ($ireadit)
-            $cache->depends['purge'] = true;
+        $page = $event->data['current']['last_change']['id'];
+        $last_change_date = $event->data['current']['last_change']['date'];
+
+        //check if new revision exists
+        $res = $sqlite->query('SELECT page FROM ireadit WHERE page = ? AND rev = ?',
+            $page, $last_change_date);
+
+        //revision already in table
+        if ($sqlite->res2single($res)) return;
+
+        /* @var \helper_plugin_ireadit $helper */
+        $helper = plugin_load('helper', 'ireadit');
+
+        //remove old "ireaders"
+        $sqlite->query('DELETE FROM ireadit WHERE page=? AND timestamp IS NULL', $page);
+
+        $newUsers = $helper->users_set($ireadit['users'], $ireadit['groups']);
+        //insert new users
+        foreach ($newUsers as $user => $info) {
+            $timestamp = date('c');
+            $sqlite->query('INSERT OR IGNORE INTO ireadit (page, rev, user) VALUES (?,?,?)',
+                $page, $last_change_date, $user);
+        }
     }
 }
