@@ -173,7 +173,18 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
             $page = $notification['page'];
             $rev = $notification['rev'];
 
-            $link = '<a href="' . wl($page) . '">' . $page . '</a>';
+            $link = '<a class="wikilink1" href="' . wl($page) . '">';
+            if (useHeading('content')) {
+                $heading = p_get_first_heading($page);
+                if (!blank($heading)) {
+                    $link .= $heading;
+                } else {
+                    $link .= noNSorNS($page);
+                }
+            } else {
+                $link .= noNSorNS($page);
+            }
+            $link .= '</a>';
             $full = sprintf($this->getLang('notification full'), $link);
             $event->data['notifications'][] = [
                 'plugin' => 'ireadit',
