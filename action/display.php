@@ -19,8 +19,7 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
         $controller->register_hook('PLUGIN_NOTIFICATION_REGISTER_SOURCE', 'AFTER', $this, 'add_notifications_source');
         $controller->register_hook('PLUGIN_NOTIFICATION_GATHER', 'AFTER', $this, 'add_notifications');
         $controller->register_hook('PLUGIN_NOTIFICATION_CACHE_DEPENDENCIES', 'AFTER', $this, 'add_notification_cache_dependencies');
-
-
+        $controller->register_hook('COMMON_WIKIPAGE_SAVE', 'AFTER', $this, 'handle_pagesave_after');
     }
 
     public function render_list()
@@ -29,7 +28,7 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
 
         if ($ACT != 'show') return;
         if (!p_get_metadata($INFO['id'], 'plugin ireadit')) return;
-        
+
 
         /** @var \helper_plugin_ireadit_db $db_helper */
         $db_helper = plugin_load('helper', 'ireadit_db');
@@ -73,7 +72,7 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
             }
             echo '</ul>';
         }
-        
+
 
         echo '</div>';
     }
@@ -106,15 +105,23 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
 
     public function updatre_ireadit_metadata(Doku_Event $event)
     {
-        //don't use ireadit here
-        if (!isset($event->data['current']['plugin']['ireadit'])) return;
-        $ireadit = $event->data['current']['plugin']['ireadit'];
-
         $db_helper = plugin_load('helper', 'ireadit_db');
         $sqlite = $db_helper->getDB();
 
         $page = $event->data['current']['last_change']['id'];
         $last_change_date = $event->data['current']['last_change']['date'];
+
+        //don't use ireadit here
+        if (!isset($event->data['current']['plugin']['ireadit'])) {
+            //remove some old data
+            $sqlite->query('DELETE FROM ireadit WHERE page=? AND timestamp IS NULL', $page);
+            return;
+        }
+        $ireadit = $event->data['current']['plugin']['ireadit'];
+
+
+
+
 
         //check if new revision exists
         $res = $sqlite->query('SELECT page FROM ireadit WHERE page = ? AND rev = ?',
@@ -192,6 +199,25 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
                 'brief' => $link,
                 'timestamp' => (int)$rev
             ];
+        }
+    }
+
+    /**
+     *
+     * @param Doku_Event $event  event object by reference
+     * @return void
+     */
+    public function handle_pagesave_after(Doku_Event $event)
+    {
+        //no content was changed
+        if (!$event->data['contentChanged']) return;
+
+        if ($event->data['changeType'] == DOKU_CHANGE_TYPE_DELETE) {
+            /** @var \helper_plugin_ireadit_db $db_helper */
+            $db_helper = plugin_load('helper', 'ireadit_db');
+            $sqlite = $db_helper->getDB();
+
+            $sqlite->query('DELETE FROM ireadit WHERE page=? AND timestamp IS NULL', $event->data['id']);
         }
     }
 }
