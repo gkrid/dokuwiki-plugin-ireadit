@@ -28,7 +28,7 @@ class syntax_plugin_ireadit extends DokuWiki_Syntax_Plugin
 
     function connectTo($mode)
     {
-        $this->Lexer->addSpecialPattern('~~IREADIT.*~~', $mode, 'plugin_ireadit');
+        $this->Lexer->addSpecialPattern('~~IREADIT.*?~~', $mode, 'plugin_ireadit');
     }
 
     function handle($match, $state, $pos, Doku_Handler $handler)
