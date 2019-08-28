@@ -13,7 +13,12 @@ if (!defined('DOKU_INC')) {
 
 class helper_plugin_ireadit extends DokuWiki_Plugin
 {
-    public function users_set($users=[], $groups=[]) {
+    /**
+     * @param array $users
+     * @param array $groups
+     * @return array
+     */
+    public static function users_set($users=[], $groups=[]) {
         global $auth;
 
         $set = [];
@@ -30,5 +35,20 @@ class helper_plugin_ireadit extends DokuWiki_Plugin
             }
         }
         return $set;
+    }
+
+    /**
+     * @param $user
+     * @param $meta
+     * @return bool
+     */
+    public function in_users_set($user, $meta) {
+        $users = $meta['users'];
+        $groups = $meta['groups'];
+        $users_set = self::users_set($users, $groups);
+        if (array_key_exists($user, $users_set)) {
+            return true;
+        }
+        return false;
     }
 }

@@ -59,6 +59,52 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
         return $sqlite->query($sql, array_values($entry));
     }
 
+    protected function migration2($data)
+    {
+        global $conf;
+
+        /** @var helper_plugin_sqlite $sqlite */
+        $sqlite = $data['sqlite'];
+        $db = $sqlite->getAdapter()->getDb();
+
+        /* @var \helper_plugin_ireadit $helper */
+        $helper = plugin_load('helper', 'ireadit');
+
+
+        $datadir = $conf['datadir'];
+        if (substr($datadir, -1) != '/') {
+            $datadir .= '/';
+        }
+
+        $rii = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($datadir));
+        $pages = [];
+        foreach ($rii as $file) {
+            if ($file->isDir()){
+                continue;
+            }
+
+            //remove start path and extension
+            $page = substr($file->getPathname(), strlen($datadir), -4);
+            $pages[] = str_replace('/', ':', $page);
+        }
+
+        $db->beginTransaction();
+
+        foreach ($pages as $page) {
+            //import historic data
+            $meta = p_get_metadata($page, 'plugin ireadit');
+            if (!$meta) continue;
+
+            $sqlite->storeEntry('meta', [
+                'page' => $page,
+                'meta' => json_encode($meta)
+            ]);
+        }
+        $db->commit();
+
+
+    }
+
     protected function migration1($data)
     {
         global $conf;

@@ -115,13 +115,10 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
         if (!isset($event->data['current']['plugin']['ireadit'])) {
             //remove some old data
             $sqlite->query('DELETE FROM ireadit WHERE page=? AND timestamp IS NULL', $page);
+            $sqlite->query('DELETE FROM meta WHERE page=?', $page);
             return;
         }
         $ireadit = $event->data['current']['plugin']['ireadit'];
-
-
-
-
 
         //check if new revision exists
         $res = $sqlite->query('SELECT page FROM ireadit WHERE page = ? AND rev = ?',
@@ -135,6 +132,8 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
 
         //remove old "ireaders"
         $sqlite->query('DELETE FROM ireadit WHERE page=? AND timestamp IS NULL', $page);
+        //update metadata
+        $sqlite->query('REPLACE INTO meta(page,meta) VALUES (?,?)', $page, json_encode($ireadit));
 
         $newUsers = $helper->users_set($ireadit['users'], $ireadit['groups']);
         //insert new users
