@@ -59,6 +59,27 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
         return $sqlite->query($sql, array_values($entry));
     }
 
+    protected function migration3($data)
+    {
+        global $conf;
+
+        /** @var helper_plugin_sqlite $sqlite */
+        $sqlite = $data['sqlite'];
+        $db = $sqlite->getAdapter()->getDb();
+
+        $res = $sqlite->query('SELECT page,meta FROM meta');
+        while ($row = $sqlite->res_fetch_assoc($res)) {
+            $last_change_date = p_get_metadata($row['page'], 'last_change date');
+            $sqlite->storeEntry('meta2', [
+                'page' => $row['page'],
+                'meta' => $row['meta'],
+                'last_change_date' => $last_change_date
+            ]);
+        }
+        $sqlite->query('DROP TABLE meta');
+        $sqlite->query('ALTER TABLE meta2 RENAME TO meta');
+    }
+
     protected function migration2($data)
     {
         global $conf;

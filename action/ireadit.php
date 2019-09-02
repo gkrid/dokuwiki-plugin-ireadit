@@ -6,7 +6,7 @@ if (!defined('DOKU_INC')) die();
  * All DokuWiki plugins to extend the parser/rendering mechanism
  * need to inherit from this class
  */
-class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
+class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
 {
     public function register(Doku_Event_Handler $controller)
     {
@@ -128,13 +128,14 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
         //remove old "ireaders"
         $sqlite->query('DELETE FROM ireadit WHERE page=? AND timestamp IS NULL', $page);
         //update metadata
-        $sqlite->query('REPLACE INTO meta(page,meta) VALUES (?,?)', $page, json_encode($ireadit));
+        $sqlite->query('REPLACE INTO meta(page,meta,last_change_date) VALUES (?,?,?)',
+            $page, json_encode($ireadit), $last_change_date);
 
         if ($this->getConf('minor_edit_keeps_readers') &&
             $event->data['current']['last_change']['type'] == 'e') {
             $res = $sqlite->query('SELECT user, timestamp FROM ireadit
-                                WHERE rev=(SELECT MAX(rev) FROM ireadit WHERE page=?)
-                                  AND page=? AND timestamp IS NOT NULL', $page, $page);
+                                    WHERE rev=(SELECT MAX(rev) FROM ireadit WHERE page=?)
+                                      AND page=? AND timestamp IS NOT NULL', $page, $page);
             $prevReaders = [];
             while ($row = $sqlite->res_fetch_assoc($res)) {
                 $user = $row['user'];

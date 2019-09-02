@@ -6,7 +6,7 @@ if (!defined('DOKU_INC')) die();
  * All DokuWiki plugins to extend the parser/rendering mechanism
  * need to inherit from this class
  */
-class syntax_plugin_ireadit extends DokuWiki_Syntax_Plugin
+class syntax_plugin_ireadit_ireadit extends DokuWiki_Syntax_Plugin
 {
     function getPType()
     {
@@ -25,7 +25,7 @@ class syntax_plugin_ireadit extends DokuWiki_Syntax_Plugin
 
     function connectTo($mode)
     {
-        $this->Lexer->addSpecialPattern('~~IREADIT.*?~~', $mode, 'plugin_ireadit');
+        $this->Lexer->addSpecialPattern('~~IREADIT.*?~~', $mode, 'plugin_ireadit_ireadit');
     }
 
     function handle($match, $state, $pos, Doku_Handler $handler)
