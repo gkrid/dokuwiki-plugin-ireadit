@@ -2,9 +2,6 @@
 // must be run within DokuWiki
 if (!defined('DOKU_INC')) die();
 
-if (!defined('DOKU_PLUGIN')) define('DOKU_PLUGIN', DOKU_INC . 'lib/plugins/');
-require_once DOKU_PLUGIN . 'syntax.php';
-
 /**
  * All DokuWiki plugins to extend the parser/rendering mechanism
  * need to inherit from this class
@@ -16,9 +13,6 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
         $controller->register_hook('TPL_CONTENT_DISPLAY', 'AFTER', $this, 'render_list');
         $controller->register_hook('ACTION_ACT_PREPROCESS', 'BEFORE', $this, 'handle_ireadit_action');
         $controller->register_hook('PARSER_METADATA_RENDER', 'AFTER', $this, 'updatre_ireadit_metadata');
-        $controller->register_hook('PLUGIN_NOTIFICATION_REGISTER_SOURCE', 'AFTER', $this, 'add_notifications_source');
-        $controller->register_hook('PLUGIN_NOTIFICATION_GATHER', 'AFTER', $this, 'add_notifications');
-        $controller->register_hook('PLUGIN_NOTIFICATION_CACHE_DEPENDENCIES', 'AFTER', $this, 'add_notification_cache_dependencies');
         $controller->register_hook('COMMON_WIKIPAGE_SAVE', 'AFTER', $this, 'handle_pagesave_after');
     }
 
@@ -105,6 +99,7 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
 
     public function updatre_ireadit_metadata(Doku_Event $event)
     {
+        /** @var helper_plugin_ireadit_db $db_helper */
         $db_helper = plugin_load('helper', 'ireadit_db');
         $sqlite = $db_helper->getDB();
 
@@ -135,69 +130,29 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
         //update metadata
         $sqlite->query('REPLACE INTO meta(page,meta) VALUES (?,?)', $page, json_encode($ireadit));
 
+        if ($this->getConf('minor_edit_keeps_readers') &&
+            $event->data['current']['last_change']['type'] == 'e') {
+            $res = $sqlite->query('SELECT user, timestamp FROM ireadit
+                                WHERE rev=(SELECT MAX(rev) FROM ireadit WHERE page=?)
+                                  AND page=? AND timestamp IS NOT NULL', $page, $page);
+            $prevReaders = [];
+            while ($row = $sqlite->res_fetch_assoc($res)) {
+                $user = $row['user'];
+                $timestamp = $row['timestamp'];
+                $prevReaders[$user] = $timestamp;
+            }
+        }
+
         $newUsers = $helper->users_set($ireadit['users'], $ireadit['groups']);
         //insert new users
         foreach ($newUsers as $user => $info) {
-            $timestamp = date('c');
-            $sqlite->query('INSERT OR IGNORE INTO ireadit (page, rev, user) VALUES (?,?,?)',
-                $page, $last_change_date, $user);
-        }
-    }
-
-    public function add_notifications_source(Doku_Event $event)
-    {
-        $event->data[] = 'ireadit';
-    }
-
-    public function add_notification_cache_dependencies(Doku_Event $event)
-    {
-        if (!in_array('ireadit', $event->data['plugins'])) return;
-
-        /** @var \helper_plugin_ireadit_db $db_helper */
-        $db_helper = plugin_load('helper', 'ireadit_db');
-        $event->data['dependencies'][] = $db_helper->getDB()->getAdapter()->getDbFile();
-    }
-
-    public function add_notifications(Doku_Event $event)
-    {
-        if (!in_array('ireadit', $event->data['plugins'])) return;
-
-        /** @var \helper_plugin_ireadit_db $db_helper */
-        $db_helper = plugin_load('helper', 'ireadit_db');
-        $sqlite = $db_helper->getDB();
-
-        $user = $event->data['user'];
-
-        $res = $sqlite->query('SELECT page, rev FROM ireadit
-                                        WHERE timestamp IS NULL
-                                        AND user = ?
-                                        ORDER BY timestamp', $user);
-
-        $notifications = $sqlite->res2arr($res);
-
-        foreach ($notifications as $notification) {
-            $page = $notification['page'];
-            $rev = $notification['rev'];
-
-            $link = '<a class="wikilink1" href="' . wl($page) . '">';
-            if (useHeading('content')) {
-                $heading = p_get_first_heading($page);
-                if (!blank($heading)) {
-                    $link .= $heading;
-                } else {
-                    $link .= noNSorNS($page);
-                }
+            if (isset($prevReaders[$user])) {
+                $sqlite->query('INSERT OR IGNORE INTO ireadit (page, rev, user, timestamp)
+                            VALUES (?,?,?,?)', $page, $last_change_date, $user, $prevReaders[$user]);
             } else {
-                $link .= noNSorNS($page);
+                $sqlite->query('INSERT OR IGNORE INTO ireadit (page, rev, user) VALUES (?,?,?)',
+                    $page, $last_change_date, $user);
             }
-            $link .= '</a>';
-            $full = sprintf($this->getLang('notification full'), $link);
-            $event->data['notifications'][] = [
-                'plugin' => 'ireadit',
-                'full' => $full,
-                'brief' => $link,
-                'timestamp' => (int)$rev
-            ];
         }
     }
 
@@ -217,6 +172,7 @@ class action_plugin_ireadit_display extends DokuWiki_Action_Plugin
             $sqlite = $db_helper->getDB();
 
             $sqlite->query('DELETE FROM ireadit WHERE page=? AND timestamp IS NULL', $event->data['id']);
+            $sqlite->query('DELETE FROM meta WHERE page=?', $event->data['id']);
         }
     }
 }
