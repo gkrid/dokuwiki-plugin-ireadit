@@ -59,6 +59,39 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
         return $sqlite->query($sql, array_values($entry));
     }
 
+    protected function migration4($data)
+    {
+        /** @var DokuWiki_Auth_Plugin */
+        global $auth;
+
+        /** @var helper_plugin_sqlite $sqlite */
+        $sqlite = $data['sqlite'];
+        $db = $sqlite->getAdapter()->getDb();
+
+        /** @var helper_plugin_ireadit $helper */
+        $helper = plugin_load('helper', 'ireadit');
+
+        $res = $sqlite->query('SELECT page,meta FROM meta');
+        while ($row = $sqlite->res_fetch_assoc($res)) {
+            $page = $row['page'];
+            $meta = json_decode($row['meta'], true);
+            $last_change_date = p_get_metadata($page, 'last_change date');
+
+            $users = $auth->retrieveUsers();
+            foreach ($users as $user => $info) {
+                $res2 = $sqlite->query('SELECT user FROM ireadit WHERE page=? AND rev=? AND user=?', $page, $last_change_date, $user);
+                $existsAlready = $sqlite->res2single($res2);
+                if (!$existsAlready && $helper->in_users_set($user, $meta)) {
+                    $sqlite->storeEntry('ireadit', [
+                        'page' => $page,
+                        'rev' => $last_change_date,
+                        'user' => $user
+                    ]);
+                }
+            }
+        }
+    }
+
     protected function migration3($data)
     {
         global $conf;
