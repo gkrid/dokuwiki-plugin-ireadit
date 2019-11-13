@@ -59,7 +59,7 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
         return $sqlite->query($sql, array_values($entry));
     }
 
-    protected function migration4($data)
+    protected function migration5($data)
     {
         /** @var DokuWiki_Auth_Plugin */
         global $auth;
@@ -71,6 +71,9 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
         /** @var helper_plugin_ireadit $helper */
         $helper = plugin_load('helper', 'ireadit');
 
+        //remove old rows
+        $sqlite->query('DELETE FROM ireadit WHERE timestamp IS NULL');
+
         $res = $sqlite->query('SELECT page,meta FROM meta');
         while ($row = $sqlite->res_fetch_assoc($res)) {
             $page = $row['page'];
@@ -79,9 +82,7 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
 
             $users = $auth->retrieveUsers();
             foreach ($users as $user => $info) {
-                $res2 = $sqlite->query('SELECT user FROM ireadit WHERE page=? AND rev=? AND user=?', $page, $last_change_date, $user);
-                $existsAlready = $sqlite->res2single($res2);
-                if (!$existsAlready && $helper->in_users_set($user, $meta)) {
+                if ($helper->in_users_set($user, $meta)) {
                     $sqlite->storeEntry('ireadit', [
                         'page' => $page,
                         'rev' => $last_change_date,
