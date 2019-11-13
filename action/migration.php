@@ -82,7 +82,9 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
 
             $users = $auth->retrieveUsers();
             foreach ($users as $user => $info) {
-                if ($helper->in_users_set($user, $meta)) {
+                $res2 = $sqlite->query('SELECT user FROM ireadit WHERE page=? AND rev=? AND user=?', $page, $last_change_date, $user);
+                $existsAlready = $sqlite->res2single($res2);
+                if (!$existsAlready && $helper->in_users_set($user, $meta)) {
                     $sqlite->storeEntry('ireadit', [
                         'page' => $page,
                         'rev' => $last_change_date,
