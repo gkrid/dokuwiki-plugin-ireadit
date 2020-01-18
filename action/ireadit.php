@@ -23,10 +23,14 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
         if ($ACT != 'show') return;
         if (!p_get_metadata($INFO['id'], 'plugin ireadit')) return;
 
-
-        /** @var \helper_plugin_ireadit_db $db_helper */
-        $db_helper = plugin_load('helper', 'ireadit_db');
-        $sqlite = $db_helper->getDB();
+        try {
+            /** @var \helper_plugin_ireadit_db $db_helper */
+            $db_helper = plugin_load('helper', 'ireadit_db');
+            $sqlite = $db_helper->getDB();
+        } catch (Exception $e) {
+            msg($e->getMessage(), -1);
+            return;
+        }
 
         echo '<div';
         if ($this->getConf('print') == 0) {
@@ -78,9 +82,14 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
         $ACT = 'show';
         if (!$INFO['client']) return;
 
-        /** @var \helper_plugin_ireadit_db $db_helper */
-        $db_helper = plugin_load('helper', 'ireadit_db');
-        $sqlite = $db_helper->getDB();
+        try {
+            /** @var \helper_plugin_ireadit_db $db_helper */
+            $db_helper = plugin_load('helper', 'ireadit_db');
+            $sqlite = $db_helper->getDB();
+        } catch (Exception $e) {
+            msg($e->getMessage(), -1);
+            return;
+        }
 
         $last_change_date = p_get_metadata($INFO['id'], 'last_change date');
 
@@ -99,9 +108,14 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
 
     public function updatre_ireadit_metadata(Doku_Event $event)
     {
-        /** @var helper_plugin_ireadit_db $db_helper */
-        $db_helper = plugin_load('helper', 'ireadit_db');
-        $sqlite = $db_helper->getDB();
+        try {
+            /** @var \helper_plugin_ireadit_db $db_helper */
+            $db_helper = plugin_load('helper', 'ireadit_db');
+            $sqlite = $db_helper->getDB();
+        } catch (Exception $e) {
+            msg($e->getMessage(), -1);
+            return;
+        }
 
         $page = $event->data['current']['last_change']['id'];
         $last_change_date = $event->data['current']['last_change']['date'];
@@ -168,9 +182,14 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
         if (!$event->data['contentChanged']) return;
 
         if ($event->data['changeType'] == DOKU_CHANGE_TYPE_DELETE) {
-            /** @var \helper_plugin_ireadit_db $db_helper */
-            $db_helper = plugin_load('helper', 'ireadit_db');
-            $sqlite = $db_helper->getDB();
+            try {
+                /** @var \helper_plugin_ireadit_db $db_helper */
+                $db_helper = plugin_load('helper', 'ireadit_db');
+                $sqlite = $db_helper->getDB();
+            } catch (Exception $e) {
+                msg($e->getMessage(), -1);
+                return;
+            }
 
             $sqlite->query('DELETE FROM ireadit WHERE page=? AND timestamp IS NULL', $event->data['id']);
             $sqlite->query('DELETE FROM meta WHERE page=?', $event->data['id']);

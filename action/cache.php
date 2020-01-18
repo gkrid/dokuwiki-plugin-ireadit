@@ -49,9 +49,15 @@ class action_plugin_ireadit_cache extends DokuWiki_Action_Plugin
         if ($ireadit_list['dynamic_user']) {
             $cache->_nocache = true;
         } else {
-            /** @var helper_plugin_ireadit_db $db_helper */
-            $db_helper = plugin_load('helper', 'ireadit_db');
-            $cache->depends['files'][] = $db_helper->getDB()->getAdapter()->getDbFile();
+            try {
+                /** @var \helper_plugin_ireadit_db $db_helper */
+                $db_helper = plugin_load('helper', 'ireadit_db');
+                $sqlite = $db_helper->getDB();
+                $cache->depends['files'][] = $sqlite->getAdapter()->getDbFile();
+            } catch (Exception $e) {
+                msg($e->getMessage(), -1);
+                return;
+            }
         }
     }
 }

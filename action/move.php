@@ -21,14 +21,19 @@ class action_plugin_ireadit_move extends DokuWiki_Action_Plugin {
      *
      * @param Doku_Event $event event object by reference
      * @param bool $ispage is this a page move operation?
-     * @return bool
      */
     public function handle_move(Doku_Event $event, $ispage) {
         $old = $event->data['src_id'];
         $new = $event->data['dst_id'];
 
-        $db_helper = plugin_load('helper', 'ireadit_db');
-        $sqlite = $db_helper->getDB();
+        try {
+            /** @var \helper_plugin_ireadit_db $db_helper */
+            $db_helper = plugin_load('helper', 'ireadit_db');
+            $sqlite = $db_helper->getDB();
+        } catch (Exception $e) {
+            msg($e->getMessage(), -1);
+            return;
+        }
 
         //move revision history
         $sqlite->query('UPDATE ireadit SET page=? WHERE page=?', $new, $old);

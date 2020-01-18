@@ -19,12 +19,7 @@ class action_plugin_ireadit_auth extends DokuWiki_Action_Plugin {
     /**
      * @param $user
      */
-    protected function updateUserIreadits($user) {
-
-        /** @var helper_plugin_ireadit_db $db_helper */
-        $db_helper = plugin_load('helper', 'ireadit_db');
-        $sqlite = $db_helper->getDB();
-
+    protected function updateUserIreadits(helper_plugin_sqlite $sqlite, $user) {
         /** @var helper_plugin_ireadit $helper */
         $helper = plugin_load('helper', 'ireadit');
 
@@ -47,14 +42,19 @@ class action_plugin_ireadit_auth extends DokuWiki_Action_Plugin {
     public function handle_auth_user_change(Doku_Event $event) {
         $type = $event->data['type'];
 
-        /** @var helper_plugin_ireadit_db $db_helper */
-        $db_helper = plugin_load('helper', 'ireadit_db');
-        $sqlite = $db_helper->getDB();
+        try {
+            /** @var \helper_plugin_ireadit_db $db_helper */
+            $db_helper = plugin_load('helper', 'ireadit_db');
+            $sqlite = $db_helper->getDB();
+        } catch (Exception $e) {
+            msg($e->getMessage(), -1);
+            return false;
+        }
 
         switch ($type) {
             case 'create':
                 $user = $event->data['params'][0];
-                $this->updateUserIreadits($user);
+                $this->updateUserIreadits($sqlite, $user);
                 break;
             case 'modify':
                 //update username
@@ -70,7 +70,7 @@ class action_plugin_ireadit_auth extends DokuWiki_Action_Plugin {
                 //update groups
                 if (isset($event->data['params'][1]['grps'])) {
                     $sqlite->query('DELETE FROM ireadit WHERE user=? AND timestamp IS NULL', $user);
-                    $this->updateUserIreadits($user);
+                    $this->updateUserIreadits($sqlite, $user);
                 }
 
                 break;
