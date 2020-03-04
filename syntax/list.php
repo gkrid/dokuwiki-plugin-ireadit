@@ -40,7 +40,7 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             $key = trim($pair[0]);
             $value = trim($pair[1]);
             if ($key == 'state') {
-                $states = ['read', 'not read', 'all'];
+                $states = ['read', 'not read', 'outdated', 'all'];
                 $value = strtolower($value);
                 if (!in_array($value, $states)) {
                     msg('ireadit plugin: unknown state "'.$value.'" should be: ' .
@@ -117,10 +117,10 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             $query_args[] = $params['user'];
         }
 
-        if ($params['state'] == 'read') {
-            $where_query[] = "ireadit.timestamp IS NOT NULL";
-        } elseif($params['state'] == 'not read') {
+        if($params['state'] == 'not read') {
             $where_query[] = "ireadit.timestamp IS NULL";
+        } else {
+            $where_query[] = "ireadit.timestamp IS NOT NULL";
         }
 
         $where_query_string = '';
@@ -128,10 +128,11 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             $where_query_string = 'WHERE ' . implode(' AND ', $where_query);
         }
 
-        $q = "SELECT ireadit.page
+        $q = "SELECT ireadit.page, MAX(ireadit.rev) AS read_rev, MAX(meta.last_change_date) AS current_rev
                 FROM ireadit INNER JOIN meta
-                    ON (ireadit.page=meta.page AND ireadit.rev=meta.last_change_date)
+                    ON (ireadit.page=meta.page)
                     $where_query_string
+                    GROUP BY ireadit.page
                     ORDER BY ireadit.page";
 
         $res = $sqlite->query($q, $query_args);
@@ -140,6 +141,16 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
         $renderer->doc .= '<ul>';
         while ($row = $sqlite->res_fetch_assoc($res)) {
             $page = $row['page'];
+            if (!isset($row['read_rev'])) {
+                $state = 'not read';
+            } elseif ($row['read_rev'] == $row['current_rev']) {
+                $state = 'read';
+            } else {
+                $state = 'outdated';
+            }
+            if ($params['state'] != 'all' && $params['state'] != $state)
+                continue;
+
             $link = '<a class="wikilink1" href="' . wl($page) . '">';
             if (useHeading('content')) {
                 $heading = p_get_first_heading($page);
