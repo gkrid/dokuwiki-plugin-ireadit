@@ -39,11 +39,11 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             }
             $key = trim($pair[0]);
             $value = trim($pair[1]);
-            if ($key == 'states') {
+            if ($key == 'state') {
                 $states = ['read', 'not read', 'all'];
                 $value = strtolower($value);
-                if (!in_array($state, $states)) {
-                    msg('ireadit plugin: unknown state "'.$state.'" should be: ' .
+                if (!in_array($value, $states)) {
+                    msg('ireadit plugin: unknown state "'.$value.'" should be: ' .
                         implode(', ', $states), -1);
                     return false;
                 }
