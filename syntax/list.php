@@ -116,6 +116,12 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             return false;
         }
 
+        try {
+            /** @var \helper_plugin_approve_db $approve_db_helper */
+            $approve_db_helper = plugin_load('helper', 'approve_db');
+            $approve_sqlite = $approve_db_helper->getDB();
+        } catch (Exception $e) {
+        }
 
         if ($params['user'] == '$USER$') {
             $params['user'] = $INFO['client'];
@@ -148,13 +154,37 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
 
         $res = $sqlite->query($q, $query_args);
 
+        if (isset($approve_sqlite)) {
+            $q = "SELECT revision.page AS page, MAX(rev) AS approved_rev
+                    FROM revision INNER JOIN page
+                        ON (page.page = revision.page)
+                        WHERE approved IS NOT NULL
+                        GROUP BY revision.page
+                        ORDER BY revision.page";
+
+            $approve_res = $approve_sqlite->query($q);
+            $approve_row = $approve_sqlite->res_fetch_assoc($approve_res);
+        }
+
         // Output List
         $renderer->doc .= '<ul>';
         while ($row = $sqlite->res_fetch_assoc($res)) {
             $page = $row['page'];
+
+            if (isset($approve_row)) {
+                while ($approve_row['page'] < $page) {
+                    $approve_row = $approve_sqlite->res_fetch_assoc($approve_res);
+                }
+                if ($approve_row['page'] == $page) {
+                    $row['approved_rev'] = $approve_row['approved_rev'];
+                }
+            }
+
             if (!isset($row['read_rev'])) {
                 $state = 'unread';
-            } elseif ($row['read_rev'] == $row['current_rev']) {
+            } elseif (isset($row['approved_rev']) && intval($row['read_rev']) >= intval($row['approved_rev'])) {
+                $state = 'read';
+            } elseif (!isset($row['approved_rev']) && intval($row['read_rev']) >= intval($row['current_rev'])) {
                 $state = 'read';
             } else {
                 $state = 'outdated';
