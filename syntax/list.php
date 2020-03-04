@@ -40,13 +40,21 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             $key = trim($pair[0]);
             $value = trim($pair[1]);
             if ($key == 'state') {
-                $states = ['read', 'not read', 'outdated', 'all'];
-                $value = strtolower($value);
-                $value = array_map('trim', explode(',', $value));
-                foreach ($value as $item) {
-                    if (!in_array($item, $states)) {
-                        msg('ireadit plugin: unknown state "'.$item.'" should be: ' .
-                            implode(', ', $states), -1);
+                $statemap = [
+                    'read' => ['read'],
+                    'outdated' => ['outdated'],
+                    'unread' => ['unread'],
+                    'not read' => ['outdated', 'unread'],
+                    'all' => ['read', 'outdated', 'unread'],
+                ];
+                $states = array_map('trim', explode(',', strtolower($value)));
+                $value = [];
+                foreach ($states as $state) {
+                    if (isset($statemap[$state])) {
+                        $value += $statemap[$state];
+                    } else {
+                        msg('ireadit plugin: unknown state "'.$state.'" should be: ' .
+                            implode(', ', array_kes($statemap)), -1);
                         return false;
                     }
                 }
@@ -145,13 +153,13 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
         while ($row = $sqlite->res_fetch_assoc($res)) {
             $page = $row['page'];
             if (!isset($row['read_rev'])) {
-                $state = 'not read';
+                $state = 'unread';
             } elseif ($row['read_rev'] == $row['current_rev']) {
                 $state = 'read';
             } else {
                 $state = 'outdated';
             }
-            if (!in_array($state, $params['state']) && !in_array('all', $params['state'])) {
+            if (!in_array($state, $params['state'])) {
                 continue;
             }
 
