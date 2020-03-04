@@ -42,10 +42,13 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             if ($key == 'state') {
                 $states = ['read', 'not read', 'outdated', 'all'];
                 $value = strtolower($value);
-                if (!in_array($value, $states)) {
-                    msg('ireadit plugin: unknown state "'.$value.'" should be: ' .
-                        implode(', ', $states), -1);
-                    return false;
+                $value = array_map('trim', explode(',', $value));
+                foreach ($value as $item) {
+                    if (!in_array($item, $states)) {
+                        msg('ireadit plugin: unknown state "'.$item.'" should be: ' .
+                            implode(', ', $states), -1);
+                        return false;
+                    }
                 }
             }
             $params[$key] = $value;
@@ -148,8 +151,9 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             } else {
                 $state = 'outdated';
             }
-            if ($params['state'] != 'all' && $params['state'] != $state)
+            if (!in_array($state, $params['state']) && !in_array('all', $params['state'])) {
                 continue;
+            }
 
             $url = wl($page);
             if (isset($row['read_rev'])) {
