@@ -151,7 +151,11 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             if ($params['state'] != 'all' && $params['state'] != $state)
                 continue;
 
-            $link = '<a class="wikilink1" href="' . wl($page) . '">';
+            $url = wl($page);
+            if (isset($row['read_rev'])) {
+                $url .= '?rev=' . $row['read_rev'];
+            }
+            $link = '<a class="wikilink1" href="' . $url . '">';
             if (useHeading('content')) {
                 $heading = p_get_first_heading($page);
                 if (!blank($heading)) {
