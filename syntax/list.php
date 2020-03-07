@@ -27,9 +27,17 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
         array_shift($lines);
         array_pop($lines);
 
+        $statemap = [
+            'read' => ['read'],
+            'outdated' => ['outdated'],
+            'unread' => ['unread'],
+            'not read' => ['outdated', 'unread'],
+            'all' => ['read', 'outdated', 'unread'],
+        ];
+
         $params = [
             'user' => '$USER$',
-            'state' => 'all'
+            'state' => $statemap['all']
         ];
 
         foreach ($lines as $line) {
@@ -40,13 +48,7 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             $key = trim($pair[0]);
             $value = trim($pair[1]);
             if ($key == 'state') {
-                $statemap = [
-                    'read' => ['read'],
-                    'outdated' => ['outdated'],
-                    'unread' => ['unread'],
-                    'not read' => ['outdated', 'unread'],
-                    'all' => ['read', 'outdated', 'unread'],
-                ];
+
                 $states = array_map('trim', explode(',', strtolower($value)));
                 $value = [];
                 foreach ($states as $state) {
@@ -54,7 +56,7 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
                         $value += $statemap[$state];
                     } else {
                         msg('ireadit plugin: unknown state "'.$state.'" should be: ' .
-                            implode(', ', array_kes($statemap)), -1);
+                            implode(', ', array_keys($statemap)), -1);
                         return false;
                     }
                 }
@@ -103,10 +105,6 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
     {
         global $INFO;
 
-        global $conf;
-        /** @var DokuWiki_Auth_Plugin $auth */
-        global $auth;
-
         try {
             /** @var \helper_plugin_ireadit_db $db_helper */
             $db_helper = plugin_load('helper', 'ireadit_db');
@@ -116,57 +114,37 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             return false;
         }
 
-
         if ($params['user'] == '$USER$') {
             $params['user'] = $INFO['client'];
         }
 
-        $where_query = [];
-        $query_args = [];
-        if ($params['user']) {
-            $where_query[] = "ireadit.user=?";
-            $query_args[] = $params['user'];
-        }
-
-        if($params['state'] == 'not read') {
-            $where_query[] = "ireadit.timestamp IS NULL";
-        } else {
-            $where_query[] = "ireadit.timestamp IS NOT NULL";
-        }
-
-        $where_query_string = '';
-        if ($where_query) {
-            $where_query_string = 'WHERE ' . implode(' AND ', $where_query);
-        }
-
-        $q = "SELECT ireadit.page, MAX(ireadit.rev) AS read_rev, MAX(meta.last_change_date) AS current_rev
-                FROM ireadit INNER JOIN meta
-                    ON (ireadit.page=meta.page)
-                    $where_query_string
-                    GROUP BY ireadit.page
-                    ORDER BY ireadit.page";
-
-        $res = $sqlite->query($q, $query_args);
+        $user = $params['user'];
+        $q = 'SELECT I.page, I.timestamp,
+                (SELECT T.timestamp FROM ireadit T WHERE T.page=I.page AND T.user=? AND T.timestamp IS NOT NULL) AS last_read
+                FROM ireadit I INNER JOIN meta M ON I.page = M.page AND I.rev = M.last_change_date
+                WHERE I.user=?';
+        $res = $sqlite->query($q, $user, $user);
 
         // Output List
         $renderer->doc .= '<ul>';
         while ($row = $sqlite->res_fetch_assoc($res)) {
             $page = $row['page'];
-            if (!isset($row['read_rev'])) {
-                $state = 'unread';
-            } elseif ($row['read_rev'] == $row['current_rev']) {
-                $state = 'read';
-            } else {
+            $timestamp = $row['timestamp'];
+            $last_read = $row['last_read'];
+
+            if (!$timestamp && $last_read) {
                 $state = 'outdated';
+            } elseif (!$timestamp && !$last_read) {
+                $state = 'unread';
+            } else {
+                $state = 'read';
             }
+
             if (!in_array($state, $params['state'])) {
                 continue;
             }
 
             $url = wl($page);
-            if (isset($row['read_rev'])) {
-                $url .= '?rev=' . $row['read_rev'];
-            }
             $link = '<a class="wikilink1" href="' . $url . '">';
             if (useHeading('content')) {
                 $heading = p_get_first_heading($page);
