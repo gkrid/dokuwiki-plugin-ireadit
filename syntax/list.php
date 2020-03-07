@@ -40,23 +40,12 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             $key = trim($pair[0]);
             $value = trim($pair[1]);
             if ($key == 'state') {
-                $statemap = [
-                    'read' => ['read'],
-                    'outdated' => ['outdated'],
-                    'unread' => ['unread'],
-                    'not read' => ['outdated', 'unread'],
-                    'all' => ['read', 'outdated', 'unread'],
-                ];
-                $states = array_map('trim', explode(',', strtolower($value)));
-                $value = [];
-                foreach ($states as $state) {
-                    if (isset($statemap[$state])) {
-                        $value += $statemap[$state];
-                    } else {
-                        msg('ireadit plugin: unknown state "'.$state.'" should be: ' .
-                            implode(', ', array_kes($statemap)), -1);
-                        return false;
-                    }
+                $states = ['read', 'not read', 'all'];
+                $value = strtolower($value);
+                if (!in_array($value, $states)) {
+                    msg('ireadit plugin: unknown state "'.$value.'" should be: ' .
+                        implode(', ', $states), -1);
+                    return false;
                 }
             }
             $params[$key] = $value;
@@ -128,10 +117,10 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             $query_args[] = $params['user'];
         }
 
-        if($params['state'] == 'not read') {
-            $where_query[] = "ireadit.timestamp IS NULL";
-        } else {
+        if ($params['state'] == 'read') {
             $where_query[] = "ireadit.timestamp IS NOT NULL";
+        } elseif($params['state'] == 'not read') {
+            $where_query[] = "ireadit.timestamp IS NULL";
         }
 
         $where_query_string = '';
@@ -139,11 +128,10 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             $where_query_string = 'WHERE ' . implode(' AND ', $where_query);
         }
 
-        $q = "SELECT ireadit.page, MAX(ireadit.rev) AS read_rev, MAX(meta.last_change_date) AS current_rev
+        $q = "SELECT ireadit.page
                 FROM ireadit INNER JOIN meta
-                    ON (ireadit.page=meta.page)
+                    ON (ireadit.page=meta.page AND ireadit.rev=meta.last_change_date)
                     $where_query_string
-                    GROUP BY ireadit.page
                     ORDER BY ireadit.page";
 
         $res = $sqlite->query($q, $query_args);
@@ -152,22 +140,7 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
         $renderer->doc .= '<ul>';
         while ($row = $sqlite->res_fetch_assoc($res)) {
             $page = $row['page'];
-            if (!isset($row['read_rev'])) {
-                $state = 'unread';
-            } elseif ($row['read_rev'] == $row['current_rev']) {
-                $state = 'read';
-            } else {
-                $state = 'outdated';
-            }
-            if (!in_array($state, $params['state'])) {
-                continue;
-            }
-
-            $url = wl($page);
-            if (isset($row['read_rev'])) {
-                $url .= '?rev=' . $row['read_rev'];
-            }
-            $link = '<a class="wikilink1" href="' . $url . '">';
+            $link = '<a class="wikilink1" href="' . wl($page) . '">';
             if (useHeading('content')) {
                 $heading = p_get_first_heading($page);
                 if (!blank($heading)) {
