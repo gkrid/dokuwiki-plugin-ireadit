@@ -152,7 +152,7 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
                 $link .= noNSorNS($page);
             }
             $link .= '</a>';
-            $renderer->doc .= '<div class="li">' . $link . '</div>';
+            $renderer->doc .= '<li class="li">' . $link . '</li>';
         }
         $renderer->doc .= '</ul>';
     }
