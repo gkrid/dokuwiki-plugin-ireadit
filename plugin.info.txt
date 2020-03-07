@@ -1,7 +1,7 @@
 base ireadit
 author Szymon Olewniczak
 email it@rid.pl
-date 2020-01-18
+date 2020-03-07
 name ireadit
 desc Allow dokuwiki users confirm that they have read the page.
 url http://www.dokuwiki.org/plugin:ireadit
