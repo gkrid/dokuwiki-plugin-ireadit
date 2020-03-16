@@ -37,7 +37,8 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
 
         $params = [
             'user' => '$USER$',
-            'state' => $statemap['all']
+            'state' => $statemap['all'],
+            'lastread' => '0'
         ];
 
         foreach ($lines as $line) {
@@ -48,17 +49,21 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             $key = trim($pair[0]);
             $value = trim($pair[1]);
             if ($key == 'state') {
-
                 $states = array_map('trim', explode(',', strtolower($value)));
                 $value = [];
                 foreach ($states as $state) {
                     if (isset($statemap[$state])) {
-                        $value += $statemap[$state];
+                        $value = array_merge($value, $statemap[$state]);
                     } else {
                         msg('ireadit plugin: unknown state "'.$state.'" should be: ' .
                             implode(', ', array_keys($statemap)), -1);
                         return false;
                     }
+                }
+            } elseif ($key == 'lastread') {
+                if ($value != '0' && $value != '1') {
+                    msg('ireadit plugin: lastread should be 0 or 1', -1);
+                    return false;
                 }
             }
             $params[$key] = $value;
@@ -120,7 +125,9 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
 
         $user = $params['user'];
         $q = 'SELECT I.page, I.timestamp,
-                (SELECT T.timestamp FROM ireadit T WHERE T.page=I.page AND T.user=? AND T.timestamp IS NOT NULL) AS last_read
+                (SELECT T.rev FROM ireadit T
+                WHERE T.page=I.page AND T.user=? AND T.timestamp IS NOT NULL
+                ORDER BY rev DESC LIMIT 1) lastread
                 FROM ireadit I INNER JOIN meta M ON I.page = M.page AND I.rev = M.last_change_date
                 WHERE I.user=?';
         $res = $sqlite->query($q, $user, $user);
@@ -130,11 +137,11 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
         while ($row = $sqlite->res_fetch_assoc($res)) {
             $page = $row['page'];
             $timestamp = $row['timestamp'];
-            $last_read = $row['last_read'];
+            $lastread = $row['lastread'];
 
-            if (!$timestamp && $last_read) {
+            if (!$timestamp && $lastread) {
                 $state = 'outdated';
-            } elseif (!$timestamp && !$last_read) {
+            } elseif (!$timestamp && !$lastread) {
                 $state = 'unread';
             } else {
                 $state = 'read';
@@ -144,7 +151,11 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
                 continue;
             }
 
-            $url = wl($page);
+            $urlParameters = [];
+            if ($params['lastread'] && $state == 'outdated') {
+                $urlParameters['rev'] = $lastread;
+            }
+            $url = wl($page, $urlParameters);
             $link = '<a class="wikilink1" href="' . $url . '">';
             if (useHeading('content')) {
                 $heading = p_get_first_heading($page);
