@@ -39,7 +39,9 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             'user' => '$USER$',
             'state' => $statemap['all'],
             'lastread' => '0',
-            'overview' => '0'
+            'overview' => '0',
+            'namespace' => '',
+            'filter' => false
         ];
 
         foreach ($lines as $line) {
@@ -60,6 +62,14 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
                             implode(', ', array_keys($statemap)), -1);
                         return false;
                     }
+                }
+            } elseif ($key == 'namespace') {
+                $value = trim(cleanID($value), ':');
+            } elseif($key == 'filter') {
+                $value = trim($value, '/');
+                if (preg_match('/' . $value . '/', null) === false) {
+                    msg('ireadit plugin: invalid filter regex', -1);
+                    return false;
                 }
             } elseif ($key == 'lastread') {
                 if ($value != '0' && $value != '1') {
@@ -129,23 +139,34 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             $params['user'] = $INFO['client'];
         }
 
+        $query_args = [$params['namespace'].'%'];
+	$filter_q = '';
+
+        if ($params['filter']) {
+            $query_args[] = $params['filter'];
+            $filter_q .= " AND I.page REGEXP ?";
+        }
+
         if ($params['overview'] == '1') {
-            $q = 'SELECT I.page, I.timestamp,
+            $q = "SELECT I.page, I.timestamp,
                     (SELECT T.rev FROM ireadit T
                     WHERE T.page=I.page AND T.timestamp IS NOT NULL
                     ORDER BY rev DESC LIMIT 1) lastread
                     FROM ireadit I INNER JOIN meta M ON I.page = M.page AND I.rev = M.last_change_date
-                    ';
-            $res = $sqlite->query($q);
+                    WHERE I.page LIKE ? ESCAPE '_'
+                    $filter_q";
+            $res = $sqlite->query($q, $query_args);
         } else {
-            $user = $params['user'];
-            $q = 'SELECT I.page, I.timestamp,
+            array_unshift($query_args, $params['user'], $params['user']);
+            $q = "SELECT I.page, I.timestamp,
                     (SELECT T.rev FROM ireadit T
                     WHERE T.page=I.page AND T.user=? AND T.timestamp IS NOT NULL
                     ORDER BY rev DESC LIMIT 1) lastread
                     FROM ireadit I INNER JOIN meta M ON I.page = M.page AND I.rev = M.last_change_date
-                    WHERE I.user=?';
-            $res = $sqlite->query($q, $user, $user);
+                    WHERE I.user=?
+                    AND I.page LIKE ? ESCAPE '_'
+                    $filter_q";
+            $res = $sqlite->query($q, $query_args);
         }
 
         // Output List
