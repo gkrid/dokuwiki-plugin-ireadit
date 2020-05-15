@@ -140,7 +140,7 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
         }
 
         $query_args = [$params['namespace'].'%'];
-	$filter_q = '';
+	    $filter_q = '';
 
         if ($params['filter']) {
             $query_args[] = $params['filter'];
@@ -154,7 +154,7 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
                     ORDER BY rev DESC LIMIT 1) lastread
                     FROM ireadit I INNER JOIN meta M ON I.page = M.page AND I.rev = M.last_change_date
                     WHERE I.page LIKE ? ESCAPE '_'
-                    $filter_q";
+                    $filter_q GROUP BY I.page";
             $res = $sqlite->query($q, $query_args);
         } else {
             array_unshift($query_args, $params['user'], $params['user']);
