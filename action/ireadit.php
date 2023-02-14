@@ -39,8 +39,8 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
         echo '>';
 
         $last_change_date = p_get_metadata($INFO['id'], 'last_change date');
-
-        if ($INFO['rev'] == 0) {
+// Original:
+/**        if ($INFO['rev'] == 0) {
             $res = $sqlite->query('SELECT page FROM ireadit WHERE page = ?
                                                 AND rev = ?
                                                 AND timestamp IS NULL
@@ -50,8 +50,41 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
                 echo '<a href="' . wl($INFO['id'], ['do' => 'ireadit']) . '">' . $this->getLang('ireadit') . '</a>';
             }
         }
+	**/
 
-        $rev = !$INFO['rev'] ? $last_change_date : $INFO['rev'];
+
+	$rev = !$INFO['rev'] ? $last_change_date : $INFO['rev'];
+
+	
+        if ($INFO['rev'] == 0) { // aktuelle Seite
+            $res = $sqlite->query('SELECT page FROM ireadit WHERE page = ?
+                                                AND rev = ?
+                                                AND timestamp IS NULL
+                                                AND user = ?', $INFO['id'],
+                                                    $last_change_date, $INFO['client']);
+            if ($sqlite->res2single($res)) {
+                echo '<a href="' . wl($INFO['id'], ['do' => 'ireadit']) . '">' . $this->getLang('ireadit') . '</a>';
+            }
+	} else { // ältere Seite, hat der Nutzer schon unterschrieben?
+            $res = $sqlite->query('SELECT page FROM ireadit WHERE page = ?
+                                                AND rev = ?
+                                                AND timestamp IS not NULL
+                                                AND user = ?', $INFO['id'],
+                                                    $rev, $INFO['client']);
+            if (!$sqlite->res2single($res)) {
+	        // dann sollte der Nutzer in der aktuellen Seite angelegt sein, auch wenn er schon unterschrieben hat
+                $res = $sqlite->query('SELECT page FROM ireadit WHERE page = ?
+                                                AND rev = ?
+                                                AND user = ?', $INFO['id'],
+                                                    $last_change_date, $INFO['client']);
+                if ($sqlite->res2single($res)) {
+                    echo '<a href="' . wl($INFO['id'], ['rev' => $rev,'do' => 'ireadit']) . '">' . $this->getLang('ireadit') . '</a>';
+	        }
+	    }
+	    	
+	}
+
+
         $res = $sqlite->query('SELECT user, timestamp FROM ireadit
                                         WHERE page = ?
                                         AND timestamp IS NOT NULL
@@ -93,6 +126,7 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
 
         $last_change_date = p_get_metadata($INFO['id'], 'last_change date');
 
+/* original	
         //check if user can "ireadit" the page and didn't "ireadit" already
         $res = $sqlite->query('SELECT page FROM ireadit
                                             WHERE page = ?
@@ -103,7 +137,26 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
         if (!$sqlite->res2single($res)) return;
 
         $sqlite->query('UPDATE ireadit SET timestamp=? WHERE page=? AND rev=? AND user=?',
+
             date('c'), $INFO['id'], $last_change_date, $INFO['client']);
+*/
+
+	$rev = !$INFO['rev'] ? $last_change_date : $INFO['rev'];
+
+	
+        if ($INFO['rev'] == 0) { // aktuelle Seite
+            $res = $sqlite->query('SELECT page FROM ireadit WHERE page = ?
+                                                AND rev = ?
+                                                AND timestamp IS NULL
+                                                AND user = ?', $INFO['id'],
+                                                    $last_change_date, $INFO['client']);
+            if (!$sqlite->res2single($res)) return;
+            $sqlite->query('UPDATE ireadit SET timestamp=? WHERE page=? AND rev=? AND user=?',
+                date('c'), $INFO['id'], $last_change_date, $INFO['client']);
+	} else { // ältere Seite
+            $sqlite->query('INSERT INTO ireadit (timestamp,page,rev,user) values(?, ?, ?, ?)',
+            date('c'), $INFO['id'], $rev, $INFO['client']);
+	}
     }
 
     public function updatre_ireadit_metadata(Doku_Event $event)

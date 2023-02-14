@@ -30,6 +30,7 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
         $statemap = [
             'read' => ['read'],
             'outdated' => ['outdated'],
+            'approved' => ['approved'], // MTK added
             'unread' => ['unread'],
             'not read' => ['outdated', 'unread'],
             'all' => ['read', 'outdated', 'unread'],
@@ -135,12 +136,48 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             return false;
         }
 
+
         if ($params['user'] == '$USER$') {
             $params['user'] = $INFO['client'];
         }
 
         $query_args = [$params['namespace'].'%'];
-	    $filter_q = '';
+        $filter_q = '';
+
+        // MTK 2021-10-22 addition option to get ireadit of last approved
+        $id = $params['namespace'] ;
+
+        if(!plugin_isdisabled('approve')) {
+            try {
+                $appdb_helper = plugin_load('helper', 'approve_db');
+                $appsqlite = $appdb_helper->getDB();
+            } catch (Exception $e) {
+                msg($e->getMessage(), -1);
+                return;
+            }
+            $apphelper = plugin_load('helper', 'approve');
+            $apprev = $apphelper->find_last_approved($appsqlite, $id);
+
+            // get all users to read it
+            $helper = plugin_load('helper', 'ireadit'); // need it?
+            $users_set = [];
+            $res = $sqlite->query('SELECT meta FROM meta where page = ?', $id);
+            $row = $sqlite->res2row($res);
+            $page = $row['page'];
+            $meta = json_decode($row['meta'], true);
+            $users = $meta['users'];
+            $groups = $meta['groups'];
+            $users_set = $helper->users_set($users, $groups);
+
+
+            // get users from ireadit for page an approved rev
+            $res = $sqlite->query('SELECT I.user FROM ireadit I WHERE I.page = ? and I.rev = ?', $id, $apprev);
+            $reads = $sqlite->res2arr($res);
+
+
+//            msg('apprev:' . $apprev);
+        }
+
 
         if ($params['filter']) {
             $query_args[] = $params['filter'];
@@ -157,6 +194,11 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
                     $filter_q";
             //GROUP BY I.page
             $res = $sqlite->query($q, $query_args);
+            // MTK state 'approved# with page in field namespace
+        } elseif (in_array('approved', $params['state'])) {
+            array_unshift($query_args, $apprev);
+            $q = "SELECT I.user, I.page, I.timestamp FROM ireadit I WHERE I.rev = ? AND I.page  like ? ESCAPE '_' $filter_q";
+            $res = $sqlite->query($q, $query_args);
         } else {
             array_unshift($query_args, $params['user'], $params['user']);
             $q = "SELECT I.page, I.timestamp,
@@ -171,28 +213,20 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
         }
 
         // Output List
-        $renderer->doc .= '<ul>';
-        while ($row = $sqlite->res_fetch_assoc($res)) {
+
+        if (in_array('approved', $params['state'])) {
+            $row = $sqlite->res_fetch_assoc($res);
+            $user = $row['user'];
             $page = $row['page'];
             $timestamp = $row['timestamp'];
-            $lastread = $row['lastread'];
-
-            if (!$timestamp && $lastread) {
-                $state = 'outdated';
-            } elseif (!$timestamp && !$lastread) {
-                $state = 'unread';
-            } else {
-                $state = 'read';
-            }
-
-            if (!in_array($state, $params['state'])) {
-                continue;
-            }
+	    if (blank($user)) {
+		    $page=$id;
+		    $rev=$apprev;
+	    }
+            $readsarray = [];
 
             $urlParameters = [];
-            if ($params['lastread'] && $state == 'outdated') {
-                $urlParameters['rev'] = $lastread;
-            }
+            $urlParameters['rev'] = $apprev;
             $url = wl($page, $urlParameters);
             $link = '<a class="wikilink1" href="' . $url . '">';
             if (useHeading('content')) {
@@ -206,8 +240,90 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
                 $link .= noNSorNS($page);
             }
             $link .= '</a>';
-            $renderer->doc .= '<li class="li">' . $link . '</li>';
-        }
+            $renderer->doc .= '<h3>' . $link . '</h3>';
+
+
+            $renderer->doc .= '<ul>';
+
+            $renderer->doc .= '<li class="li">';
+
+            /*
+            $renderer->doc .= "All: " ;
+            foreach ($users_set as $key => $setuser) {
+                $renderer->doc .= " ". $setuser['name'] ;
+                $renderer->doc .= " (". $key . "), " ;
+            }
+
+            $renderer->doc .= '</li><li class="li">';
+             */
+
+            $renderer->doc .= $this->getLang('applist_read') ;
+            foreach ($reads as $key => $readuser) {
+                $renderer->doc .= $users_set[$readuser['user']]['name'] ;
+                $renderer->doc .= " (". $readuser['user'] . ")" ;
+                if ($key != array_key_last($reads)) {
+                    $renderer->doc .= ", " ;
+                }
+
+                $readsarray[$readuser['user']] = $users_set[$readuser['user']]['name'] ;
+            }
+
+
+            $renderer->doc .= '</li><li class="li">';
+
+            $renderer->doc .= $this->getLang('applist_not_read') ;
+            foreach ($users_set as $key => $setuser) {
+                if (!array_key_exists($key, $readsarray)) {
+                    $renderer->doc .=  $setuser['name'] . " (" . $key . "), " ;
+                }
+            }
+
+            $renderer->doc .= '</li>';
+            $renderer->doc .= '</ul>';
+
+        } else {
+            $renderer->doc .= '<ul>';
+            while ($row = $sqlite->res_fetch_assoc($res)) {
+                $user = $row['user'];
+                $page = $row['page'];
+                $timestamp = $row['timestamp'];
+                $lastread = $row['lastread'];
+                $readsarray = [];
+
+
+
+                if (!$timestamp && $lastread) {
+                    $state = 'outdated';
+                } elseif (!$timestamp && !$lastread) {
+                    $state = 'unread';
+                } else {
+                    $state = 'read';
+                }
+
+                if (!in_array($state, $params['state'])) {
+                    continue;
+                }
+
+                $urlParameters = [];
+                if ($params['lastread'] && $state == 'outdated') {
+                    $urlParameters['rev'] = $lastread;
+                }
+                $url = wl($page, $urlParameters);
+                $link = '<a class="wikilink1" href="' . $url . '">';
+                if (useHeading('content')) {
+                    $heading = p_get_first_heading($page);
+                    if (!blank($heading)) {
+                        $link .= $heading;
+                    } else {
+                        $link .= noNSorNS($page);
+                    }
+                } else {
+                    $link .= noNSorNS($page);
+                }
+                $link .= '</a>';
+                $renderer->doc .= '<li class="li">' . $link . '</li>';
+            }
         $renderer->doc .= '</ul>';
+        }
     }
 }
