@@ -196,7 +196,7 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
         foreach ($pages as $page) {
             //import historic data
             $meta = p_get_metadata($page, 'plugin_ireadit');
-            if (!$meta || isset($meta['users'])) continue; //no metadata or new metadata format
+            if (!$meta) continue; //no metadata or new metadata format
 
             foreach ($meta as $rev => $data) {
                 if ($rev === '' || count($data) == 0) continue;
