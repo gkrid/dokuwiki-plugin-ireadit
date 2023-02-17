@@ -99,7 +99,7 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
 
     public function render($mode, Doku_Renderer $renderer, $data)
     {
-        $method = 'render' . ucfirst($mode);
+        $method = "render_$mode";
         if (method_exists($this, $method)) {
             call_user_func([$this, $method], $renderer, $data);
             return true;
@@ -113,16 +113,12 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
      * @param Doku_Renderer $renderer The renderer
      * @param array         $params     The data from the handler() function
      */
-    public function renderMetadata(Doku_Renderer $renderer, $params)
+    public function render_metadata(Doku_Renderer $renderer, $params)
     {
-        $renderer->meta['plugin']['ireadit_list'] = [];
-
-        if ($params['user'] == '$USER$') {
-            $renderer->meta['plugin']['ireadit_list']['dynamic_user'] = true;
-        }
+        $renderer->meta['plugin_ireadit_list'] = true;
     }
 
-    public function renderXhtml(Doku_Renderer $renderer, $params)
+    public function render_xhtml(Doku_Renderer $renderer, $params)
     {
         global $INFO;
 
@@ -135,63 +131,37 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             return false;
         }
 
-        if ($params['user'] == '$USER$') {
-            $params['user'] = $INFO['client'];
-        }
-
-        $query_args = [$params['namespace'].'%'];
-	    $filter_q = '';
-
-        if ($params['filter']) {
-            $query_args[] = $params['filter'];
-            $filter_q .= " AND I.page REGEXP ?";
-        }
-
+        //overview overrides user setting
         if ($params['overview'] == '1') {
-            $q = "SELECT I.page, MAX(I.timestamp) timestamp,
-                    (SELECT MAX(T.rev) FROM ireadit T
-                    WHERE T.page=I.page AND T.timestamp IS NOT NULL
-                    ORDER BY rev DESC LIMIT 1) lastread
-                    FROM ireadit I INNER JOIN meta M ON I.page = M.page AND I.rev = M.last_change_date
-                    WHERE I.page LIKE ? ESCAPE '_' GROUP BY I.page
-                    $filter_q";
-            //GROUP BY I.page
-            $res = $sqlite->query($q, $query_args);
+            $user = NULL;
+        } elseif ($params['user'] == '$USER$') {
+            $user = $INFO['client'];
         } else {
-            array_unshift($query_args, $params['user'], $params['user']);
-            $q = "SELECT I.page, I.timestamp,
-                    (SELECT T.rev FROM ireadit T
-                    WHERE T.page=I.page AND T.user=? AND T.timestamp IS NOT NULL
-                    ORDER BY rev DESC LIMIT 1) lastread
-                    FROM ireadit I INNER JOIN meta M ON I.page = M.page AND I.rev = M.last_change_date
-                    WHERE I.user=?
-                    AND I.page LIKE ? ESCAPE '_'
-                    $filter_q";
-            $res = $sqlite->query($q, $query_args);
+            $user = $params['user'];
         }
+
+        /** @var helper_plugin_ireadit $helper */
+        $helper = $this->loadHelper('ireadit');
+        $pages = $helper->get_list($user);
+
+        // apply "filter" and "namespace"
+        $pages = array_filter($pages, function ($k) use ($params) {
+            return substr($k, 0, strlen($params['namespace'])) == $params['namespace'];
+        }, ARRAY_FILTER_USE_KEY);
+        $pages = array_filter($pages, function ($k) use ($params) {
+            return preg_match('/' . $params['filter'] . '/', $k);
+        }, ARRAY_FILTER_USE_KEY);
 
         // Output List
         $renderer->doc .= '<ul>';
-        while ($row = $sqlite->res_fetch_assoc($res)) {
-            $page = $row['page'];
-            $timestamp = $row['timestamp'];
-            $lastread = $row['lastread'];
-
-            if (!$timestamp && $lastread) {
-                $state = 'outdated';
-            } elseif (!$timestamp && !$lastread) {
-                $state = 'unread';
-            } else {
-                $state = 'read';
-            }
-
-            if (!in_array($state, $params['state'])) {
+        foreach ($pages as $page => $row) {
+            if (!in_array($row['state'], $params['state'])) {
                 continue;
             }
 
             $urlParameters = [];
-            if ($params['lastread'] && $state == 'outdated') {
-                $urlParameters['rev'] = $lastread;
+            if ($params['lastread'] && $row['state'] == 'outdated') {
+                $urlParameters['rev'] = $row['last_read_rev'];
             }
             $url = wl($page, $urlParameters);
             $link = '<a class="wikilink1" href="' . $url . '">';
@@ -209,5 +179,7 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             $renderer->doc .= '<li class="li">' . $link . '</li>';
         }
         $renderer->doc .= '</ul>';
+
+        return true;
     }
 }

@@ -23,43 +23,21 @@ class action_plugin_ireadit_notification extends DokuWiki_Action_Plugin
     public function add_notification_cache_dependencies(Doku_Event $event)
     {
         if (!in_array('ireadit', $event->data['plugins'])) return;
-
-        try {
-            /** @var \helper_plugin_ireadit_db $db_helper */
-            $db_helper = plugin_load('helper', 'ireadit_db');
-            $sqlite = $db_helper->getDB();
-            $event->data['dependencies'][] = $sqlite->getAdapter()->getDbFile();
-        } catch (Exception $e) {
-            msg($e->getMessage(), -1);
-            return;
-        }
+        $event->data['_nocache'] = true; // TODO: notification cache mechanism should be updated to "Igor" dokuwiki
     }
 
     public function add_notifications(Doku_Event $event)
     {
         if (!in_array('ireadit', $event->data['plugins'])) return;
 
-        try {
-            /** @var \helper_plugin_ireadit_db $db_helper */
-            $db_helper = plugin_load('helper', 'ireadit_db');
-            $sqlite = $db_helper->getDB();
-        } catch (Exception $e) {
-            msg($e->getMessage(), -1);
-            return;
-        }
-
         $user = $event->data['user'];
 
-        $res = $sqlite->query('SELECT page, rev FROM ireadit
-                                        WHERE timestamp IS NULL
-                                        AND user = ?
-                                        ORDER BY timestamp', $user);
+        /** @var helper_plugin_ireadit $helper */
+        $helper = $this->loadHelper('ireadit');
+        $pages = $helper->get_list($user);
 
-        $notifications = $sqlite->res2arr($res);
-
-        foreach ($notifications as $notification) {
-            $page = $notification['page'];
-            $rev = $notification['rev'];
+        foreach ($pages as $page => $row) {
+            if ($row['state'] == 'read') continue;
 
             $link = '<a class="wikilink1" href="' . wl($page, '', true) . '">';
             if (useHeading('content')) {
@@ -76,10 +54,10 @@ class action_plugin_ireadit_notification extends DokuWiki_Action_Plugin
             $full = sprintf($this->getLang('notification full'), $link);
             $event->data['notifications'][] = [
                 'plugin' => 'ireadit',
-                'id' => $page . ':' . $rev,
+                'id' => $page . ':' . $row['current_rev'],
                 'full' => $full,
                 'brief' => $link,
-                'timestamp' => (int)$rev
+                'timestamp' => (int) $row['current_rev']
             ];
         }
     }

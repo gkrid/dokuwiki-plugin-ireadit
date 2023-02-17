@@ -43,7 +43,6 @@ class syntax_plugin_ireadit_ireadit extends DokuWiki_Syntax_Plugin
                 $users[] = $split;
             }
         }
-
         return ['users' => $users, 'groups' => $groups];
     }
 
@@ -80,6 +79,6 @@ class syntax_plugin_ireadit_ireadit extends DokuWiki_Syntax_Plugin
     public function render_metadata(Doku_Renderer $renderer, $data)
     {
         $plugin_name = $this->getPluginName();
-        $renderer->meta['plugin'][$plugin_name] = $data;
+        $renderer->meta['plugin_' . $plugin_name] = $data;
     }
 }

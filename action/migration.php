@@ -78,13 +78,14 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
         while ($row = $sqlite->res_fetch_assoc($res)) {
             $page = $row['page'];
             $meta = json_decode($row['meta'], true);
+            $user_set = $helper->users_set($meta);
             $last_change_date = p_get_metadata($page, 'last_change date');
 
             $users = $auth->retrieveUsers();
             foreach ($users as $user => $info) {
                 $res2 = $sqlite->query('SELECT user FROM ireadit WHERE page=? AND rev=? AND user=?', $page, $last_change_date, $user);
                 $existsAlready = $sqlite->res2single($res2);
-                if (!$existsAlready && $helper->in_users_set($user, $meta)) {
+                if (!$existsAlready && in_array($user, $user_set)) {
                     $sqlite->storeEntry('ireadit', [
                         'page' => $page,
                         'rev' => $last_change_date,
@@ -195,7 +196,7 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
         foreach ($pages as $page) {
             //import historic data
             $meta = p_get_metadata($page, 'plugin_ireadit');
-            if (!$meta) continue;
+            if (!$meta || isset($meta['users'])) continue; //no metadata or new metadata format
 
             foreach ($meta as $rev => $data) {
                 if ($rev === '' || count($data) == 0) continue;
@@ -233,7 +234,7 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
 
             if ($usersToInsert) {
                 $last_change_date = p_get_metadata($page, 'last_change date');
-                foreach ($usersToInsert as $user => $info) {
+                foreach ($usersToInsert as $user) {
                     $this->insertOrIgnore($sqlite,'ireadit', [
                         'page' => $page,
                         'rev' => $last_change_date,
