@@ -22,8 +22,8 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
         global $INFO, $ACT, $auth;
 
         if ($ACT != 'show') return;
-        if (!isset($INFO['meta']['plugin_ireadit=0.1'])) return;
-        $ireadit_data = $INFO['meta']['plugin_ireadit=0.1'];
+        if (!isset($INFO['meta']['plugin_ireadit'])) return;
+        $ireadit_data = $INFO['meta']['plugin_ireadit'];
 
         echo '<div';
         if ($this->getConf('print') == 0) {
@@ -58,8 +58,8 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
         global $INFO;
         if ($event->data != 'ireadit') return;
         if (!$INFO['client']) return;
-        if (!isset($INFO['meta']['plugin_ireadit=0.1'])) return;
-        $ireadit_data = $INFO['meta']['plugin_ireadit=0.1'];
+        if (!isset($INFO['meta']['plugin_ireadit'])) return;
+        $ireadit_data = $INFO['meta']['plugin_ireadit'];
 
         /** @var helper_plugin_ireadit $helper */
         $helper = $this->loadHelper('ireadit');
@@ -85,7 +85,7 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
     public function handle_pagesave_after(Doku_Event $event)
     {
         global $INFO;
-        if (!isset($INFO['meta']['plugin_ireadit=0.1'])) return;
+        if (!isset($INFO['meta']['plugin_ireadit'])) return;
 
         if ($this->getConf('minor_edit_keeps_readers') &&
             $event->data['changeType'] == DOKU_CHANGE_TYPE_MINOR_EDIT) {
@@ -115,7 +115,7 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
      * Add all data of the readers metadata to the metadata index.
      */
     public function add_readers_to_index(Doku_Event $event, $param) {
-        $ireadit_data = p_get_metadata($event->data['page'], 'plugin_ireadit=0.1');
+        $ireadit_data = p_get_metadata($event->data['page'], 'plugin_ireadit');
         if (!$ireadit_data) return;
 
         /** @var helper_plugin_ireadit $helper */
