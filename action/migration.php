@@ -4,6 +4,8 @@
  *
  */
 
+use dokuwiki\Cache\CacheRenderer;
+
 // must be run within Dokuwiki
 
 if (!defined('DOKU_INC')) die();
@@ -57,6 +59,26 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
 
         $sql = "INSERT OR IGNORE INTO $table ($keys) VALUES ($vals)";
         return $sqlite->query($sql, array_values($entry));
+    }
+
+    protected function migration7($data)
+    {
+        global $conf;
+        $data = array();
+        search($data, $conf['datadir'], 'search_allpages', array('skipacl' => true));
+        foreach($data as $val) {
+            //import current data
+            $wikiFN = wikiFN($val['id']);
+            $content = file_get_contents($wikiFN);
+            $status = preg_match('/~~IREADIT.*~~/', $content, $matches);
+            // we use ireadit here
+            if ($status === 1) {
+                $cachefile = new CacheRenderer($val['id'], wikiFN($val['id']), 'metadata');
+                $cachefile->removeCache();
+                p_get_metadata($val['id'], 'plugin_ireadit=0.2'); // render metadata
+                idx_addPage($val['id'], false, true); // regenerate index for the plugin
+            }
+        }
     }
 
     protected function migration5($data)
@@ -196,7 +218,7 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
         foreach ($pages as $page) {
             //import historic data
             $meta = p_get_metadata($page, 'plugin_ireadit');
-            if (!$meta || isset($meta['users'])) continue; //no metadata or new metadata format
+            if (!$meta) continue; //no metadata
 
             foreach ($meta as $rev => $data) {
                 if ($rev === '' || count($data) == 0) continue;

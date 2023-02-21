@@ -23,7 +23,7 @@ class action_plugin_ireadit_auth extends DokuWiki_Action_Plugin {
         search($data, $conf['datadir'], 'search_allpages', array('skipacl' => true));
         foreach($data as $val) {
             // if we use ireadit on the page, invalidate index
-            if (p_get_metadata($val['id'], 'plugin_ireadit')) {
+            if (p_get_metadata($val['id'], 'plugin_ireadit=0.2')) {
                 $idxtag = metaFN($val['id'],'.indexed');
                 @unlink($idxtag);
             }

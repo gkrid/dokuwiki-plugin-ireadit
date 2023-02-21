@@ -78,7 +78,7 @@ class syntax_plugin_ireadit_ireadit extends DokuWiki_Syntax_Plugin
      */
     public function render_metadata(Doku_Renderer $renderer, $data)
     {
-        $plugin_name = $this->getPluginName();
-        $renderer->meta['plugin_' . $plugin_name] = $data;
+        // add version number to avoid conflict with historical metadata
+        $renderer->meta['plugin_ireadit=0.2'] = $data;
     }
 }
