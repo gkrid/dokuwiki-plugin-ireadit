@@ -35,9 +35,24 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
         $helper = $this->loadHelper('ireadit');
 
         // we use 'lastmod' insetead of 'rev' to get the timestamp also for the current revision
-        if ($helper->user_can_read_page($ireadit_data, $INFO['id'], $INFO['lastmod'], $INFO['client'], $readers)) {
-            echo '<a href="' . wl($INFO['id'], ['do' => 'ireadit']) . '">' . $this->getLang('ireadit') . '</a>';
+        if ($helper->user_can_read_page($ireadit_data, $INFO['id'], $INFO['lastmod'], $INFO['client'])) {
+            echo '<a href="' . wl($INFO['id'], ['do' => 'ireadit', 'rev' => $INFO['lastmod']]) . '">' . $this->getLang('ireadit') . '</a>';
         }
+
+        try {
+            /** @var \helper_plugin_ireadit_db $db_helper */
+            $db_helper = plugin_load('helper', 'ireadit_db');
+            $sqlite = $db_helper->getDB();
+        } catch (Exception $e) {
+            msg($e->getMessage(), -1);
+            return;
+        }
+
+        $res = $sqlite->query('SELECT user, timestamp FROM ireadit
+                                        WHERE page = ?
+                                        AND rev = ?
+                                        ORDER BY timestamp', $INFO['id'], $INFO['lastmod']);
+        $readers = $sqlite->res2arr($res);
 
         if (count($readers) > 0) {
             echo '<h3>' . $this->getLang('readit_header') . '</h3>';
@@ -55,7 +70,7 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
 
     public function handle_ireadit_action(Doku_Event $event)
     {
-        global $INFO;
+        global $INFO, $INPUT;
         if ($event->data != 'ireadit') return;
         if (!$INFO['client']) return;
         if (!isset($INFO['meta']['plugin_ireadit=0.2'])) return;
@@ -79,7 +94,8 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
                 'timestamp' => date('c')
             ]);
         }
-        $event->data = 'redirect';
+        $go = wl($INFO['id'], ['rev' => $INFO['lastmod']], true, '&');
+        send_redirect($go);
     }
 
     public function handle_pagesave_after(Doku_Event $event)

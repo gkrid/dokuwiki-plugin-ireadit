@@ -39,14 +39,63 @@ class helper_plugin_ireadit extends DokuWiki_Plugin
         return array_keys($set);
     }
 
-    public function user_can_read_page($ireadit_data, $id, $rev, $user, &$readers=array()) {
+    public function find_last_approved($id) {
+        /** @var helper_plugin_approve $approve_helper */
+        $approve_helper = plugin_load('helper', 'approve');
+        if ($approve_helper == null) {
+            msg('You must install approve plugin to use ireadit-approve integration.', -1);
+            return null;
+        }
+
+        try {
+            /** @var \helper_plugin_approve_db $db_helper */
+            $approve_db_helper = plugin_load('helper', 'approve_db');
+            $approve_sqlite = $approve_db_helper->getDB();
+        } catch (Exception $e) {
+            msg($e->getMessage(), -1);
+            return null;
+        }
+
+        return $approve_helper->find_last_approved($approve_sqlite, $id);
+    }
+
+    public function get_approved_revs($id) {
+        try {
+            /** @var \helper_plugin_approve_db $db_helper */
+            $approve_db_helper = plugin_load('helper', 'approve_db');
+            if ($approve_db_helper == null) {
+                msg('You must install approve plugin to use ireadit-approve integration.', -1);
+                return [];
+            }
+            $approve_sqlite = $approve_db_helper->getDB();
+        } catch (Exception $e) {
+            msg($e->getMessage(), -1);
+            return [];
+        }
+
+        $res = $approve_sqlite->query('SELECT rev FROM revision WHERE page=? AND approved IS NOT NULL', $id);
+        return array_map(function ($row) {
+            return (int) $row['rev'];
+        }, $approve_sqlite->res2arr($res));
+    }
+
+    public function user_can_read_page($ireadit_data, $id, $rev, $user) {
+        if ($this->getConf('approve_integration')) { // check if this is newest approve page
+            $last_approved_rev = $this->find_last_approved($id);
+            if ($rev != $last_approved_rev) { // this is not last approved version
+                return false;
+            }
+        } elseif ($rev != p_get_metadata($id, 'last_change date')) { // check if it is last page revision
+            return false;
+        }
+
         try {
             /** @var \helper_plugin_ireadit_db $db_helper */
             $db_helper = plugin_load('helper', 'ireadit_db');
             $sqlite = $db_helper->getDB();
         } catch (Exception $e) {
             msg($e->getMessage(), -1);
-            return;
+            return false;
         }
 
         $res = $sqlite->query('SELECT user, timestamp FROM ireadit
@@ -60,7 +109,7 @@ class helper_plugin_ireadit extends DokuWiki_Plugin
 
     /**
      * @param $user NULL means overview mode
-     * @return array|false
+     * @return array
      */
     public function get_list($user=NULL) {
         try {
@@ -69,7 +118,7 @@ class helper_plugin_ireadit extends DokuWiki_Plugin
             $sqlite = $db_helper->getDB();
         } catch (Exception $e) {
             msg($e->getMessage(), -1);
-            return false;
+            return [];
         }
 
         $indexer = idx_get_indexer();
@@ -80,28 +129,61 @@ class helper_plugin_ireadit extends DokuWiki_Plugin
         }
 
         $pages = [];
-        foreach ($current_user_pages as $page) {
-            $last_change_date = p_get_metadata($page, 'last_change date');
-            $pages[$page] = [
-                'current_rev' => $last_change_date,
-                'last_read_rev' => NULL,
-                'timestamp' => NULL
-            ];
-        }
-        if ($user) {
-            $res = $sqlite->query('SELECT page, MAX(rev) as "rev", timestamp FROM ireadit WHERE user=? GROUP BY page',
-                $user);
-        } else {
-            $res = $sqlite->query('SELECT page, MAX(rev) as "rev", timestamp FROM ireadit GROUP BY page');
-        }
+        if ($this->getConf('approve_integration')) {
+            foreach ($current_user_pages as $page) {
+                $approved_revs = $this->get_approved_revs($page);
+                if (count($approved_revs) == 0) { // page was never approved - don't list it
+                    continue;
+                }
+                $current_rev = max($approved_revs);
+                if ($user) {
+                    $res = $sqlite->query('SELECT rev, timestamp FROM ireadit WHERE user=? AND page=? ORDER BY rev DESC',
+                        $user, $page);
+                } else {
+                    $res = $sqlite->query('SELECT rev, timestamp FROM ireadit WHERE page=? ORDER BY rev DESC', $page);
+                }
+                $user_reads = $sqlite->res2arr($res);
+                $last_read_rev = NULL;
+                $last_read_timestamp = NULL;
+                foreach ($user_reads as $row) {
+                    $rev = (int) $row['rev'];
+                    if (in_array($rev, $approved_revs)) {
+                        $last_read_rev = $rev;
+                        $last_read_timestamp = $row['timestamp'];
+                        break;
+                    }
+                }
 
-        while ($row = $sqlite->res_fetch_assoc($res)) {
-            $page = $row['page'];
-            $rev = (int) $row['rev'];
-            $timestamp = $row['timestamp'];
-            if (isset($pages[$page])) {
-                $pages[$page]['last_read_rev'] = $rev;
-                $pages[$page]['timestamp'] = $timestamp;
+                $pages[$page] = [
+                    'current_rev' => $current_rev,
+                    'last_read_rev' => $last_read_rev,
+                    'timestamp' => $last_read_timestamp
+                ];
+            }
+        } else {
+            foreach ($current_user_pages as $page) {
+                $current_rev = p_get_metadata($page, 'last_change date');
+
+                $pages[$page] = [
+                    'current_rev' => $current_rev,
+                    'last_read_rev' => NULL,
+                    'timestamp' => NULL
+                ];
+            }
+            if ($user) {
+                $res = $sqlite->query('SELECT page, MAX(rev) as "rev", timestamp FROM ireadit WHERE user=? GROUP BY page',
+                    $user);
+            } else {
+                $res = $sqlite->query('SELECT page, MAX(rev) as "rev", timestamp FROM ireadit GROUP BY page');
+            }
+            while ($row = $sqlite->res_fetch_assoc($res)) {
+                $page = $row['page'];
+                $rev = (int) $row['rev'];
+                $timestamp = $row['timestamp'];
+                if (isset($pages[$page])) {
+                    $pages[$page]['last_read_rev'] = $rev;
+                    $pages[$page]['timestamp'] = $timestamp;
+                }
             }
         }
 

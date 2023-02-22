@@ -39,7 +39,14 @@ class action_plugin_ireadit_notification extends DokuWiki_Action_Plugin
         foreach ($pages as $page => $row) {
             if ($row['state'] == 'read') continue;
 
-            $link = '<a class="wikilink1" href="' . wl($page, '', true) . '">';
+            $urlParameters = [];
+            // in case of approve integration current_rev may be last approved revision
+            if ($this->getConf('approve_integration') &&
+                $row['current_rev'] != p_get_metadata($page, 'last_change date')) {
+                $urlParameters['rev'] = $row['current_rev'];
+            }
+
+            $link = '<a class="wikilink1" href="' . wl($page, $urlParameters, true) . '">';
             if (useHeading('content')) {
                 $heading = p_get_first_heading($page);
                 if (!blank($heading)) {

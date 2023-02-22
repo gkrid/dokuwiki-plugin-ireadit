@@ -162,6 +162,10 @@ class syntax_plugin_ireadit_list extends DokuWiki_Syntax_Plugin {
             $urlParameters = [];
             if ($params['lastread'] && $row['state'] == 'outdated') {
                 $urlParameters['rev'] = $row['last_read_rev'];
+            // in case of approve integration current_rev may be last approved revision
+            } elseif ($this->getConf('approve_integration') &&
+                $row['current_rev'] != p_get_metadata($page, 'last_change date')) {
+                $urlParameters['rev'] = $row['current_rev'];
             }
             $url = wl($page, $urlParameters);
             $link = '<a class="wikilink1" href="' . $url . '">';
