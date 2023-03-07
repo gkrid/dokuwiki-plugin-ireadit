@@ -99,15 +99,20 @@ class helper_plugin_ireadit extends DokuWiki_Plugin
         }, $approve_sqlite->res2arr($res));
     }
 
-    public function user_can_read_page($ireadit_data, $id, $rev, $user) {
+    public function use_ireadit_here($id, $rev) {
         if ($this->getConf('approve_integration') && $this->use_approve_here($id)) { // check if this is newest approve page
             $last_approved_rev = $this->find_last_approved($id);
-            if ($rev != $last_approved_rev) { // this is not last approved version
-                return false;
+            if ($rev == $last_approved_rev) { // this is last approved version
+                return true;
             }
-        } elseif ($rev != p_get_metadata($id, 'last_change date')) { // check if it is last page revision
-            return false;
+        } elseif ($rev == p_get_metadata($id, 'last_change date')) { // check if it is last page revision
+            return true;
         }
+        return false;
+    }
+
+    public function user_can_read_page($ireadit_data, $id, $rev, $user) {
+        if (!$this->use_ireadit_here($id, $rev)) return false;
 
         try {
             /** @var \helper_plugin_ireadit_db $db_helper */
@@ -178,7 +183,10 @@ class helper_plugin_ireadit extends DokuWiki_Plugin
             foreach ($current_user_pages as $page) {
                 if (!$this->use_approve_here($page)) continue; // ignore the pages where approve doesn't apply
                 $approved_revs = $this->get_approved_revs($page);
-                if (count($approved_revs) == 0) unset($pages[$page]); // page was never approved - don't list it
+                if (count($approved_revs) == 0) { // page was never approved - don't list it
+                    unset($pages[$page]);
+                    continue;
+                }
 
                 $current_rev = max($approved_revs);
                 if ($user) {

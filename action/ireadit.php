@@ -19,7 +19,7 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
 
     public function render_list()
     {
-        global $INFO, $ACT, $auth;
+        global $INFO, $ACT;
 
         if ($ACT != 'show') return;
         if (!isset($INFO['meta']['plugin_ireadit=0.2'])) return;
@@ -58,19 +58,32 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
             echo '<h3>' . $this->getLang('readit_header') . '</h3>';
             echo '<ul>';
             foreach ($readers as $reader) {
-                $udata = $auth->getUserData($reader['user'], false);
-                $name = $udata ? $udata['name'] : $reader['user'];
                 $time = strtotime($reader['timestamp']);
-                echo '<li>' . $name . ' - ' . date('d/m/Y H:i', $time) . '</li>';
+                echo '<li>' . userlink($reader['user']) . ' - ' . dformat($time) . '</li>';
             }
             echo '</ul>';
         }
+
+        if ($this->getConf('show_not_read_list') && $helper->use_ireadit_here($INFO['id'], $INFO['lastmod'])) {
+            $not_read = array_diff($helper->users_set($ireadit_data), array_column($readers, 'user'));
+            $not_read_userlinks = array_map('userlink', $not_read);
+            sort($not_read_userlinks);
+            if (count($not_read) > 0) {
+                echo '<h3>' . $this->getLang('not_read_header') . '</h3>';
+                echo '<ul>';
+                foreach ($not_read_userlinks as $userlink) {
+                    echo '<li>' . $userlink . '</li>';
+                }
+                echo '</ul>';
+            }
+        }
+
         echo '</div>';
     }
 
     public function handle_ireadit_action(Doku_Event $event)
     {
-        global $INFO, $INPUT;
+        global $INFO;
         if ($event->data != 'ireadit') return;
         if (!$INFO['client']) return;
         if (!isset($INFO['meta']['plugin_ireadit=0.2'])) return;
