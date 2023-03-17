@@ -48,11 +48,10 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
             return;
         }
 
-        $res = $sqlite->query('SELECT user, timestamp FROM ireadit
+        $readers = $sqlite->queryAll('SELECT user, timestamp FROM ireadit
                                         WHERE page = ?
                                         AND rev = ?
-                                        ORDER BY timestamp', $INFO['id'], $INFO['lastmod']);
-        $readers = $sqlite->res2arr($res);
+                                        ORDER BY timestamp', [$INFO['id'], $INFO['lastmod']]);
 
         if (count($readers) > 0) {
             echo '<h3>' . $this->getLang('readit_header') . '</h3>';

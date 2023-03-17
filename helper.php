@@ -123,11 +123,10 @@ class helper_plugin_ireadit extends DokuWiki_Plugin
             return false;
         }
 
-        $res = $sqlite->query('SELECT user, timestamp FROM ireadit
+        $readers = $sqlite->queryAll('SELECT user, timestamp FROM ireadit
                                         WHERE page = ?
                                         AND rev = ?
-                                        ORDER BY timestamp', $id, $rev);
-        $readers = $sqlite->res2arr($res);
+                                        ORDER BY timestamp', [$id, $rev]);
         $users_set = $this->users_set($ireadit_data);
         return in_array($user, $users_set) && !in_array($user, array_column($readers, 'user'));
     }
@@ -190,12 +189,12 @@ class helper_plugin_ireadit extends DokuWiki_Plugin
 
                 $current_rev = max($approved_revs);
                 if ($user) {
-                    $res = $sqlite->query('SELECT rev, timestamp FROM ireadit WHERE user=? AND page=? ORDER BY rev DESC',
-                        $user, $page);
+                    $sth = $sqlite->query('SELECT rev, timestamp FROM ireadit WHERE user=? AND page=? ORDER BY rev DESC',
+                        [$user, $page]);
                 } else {
-                    $res = $sqlite->query('SELECT rev, timestamp FROM ireadit WHERE page=? ORDER BY rev DESC', $page);
+                    $sth = $sqlite->query('SELECT rev, timestamp FROM ireadit WHERE page=? ORDER BY rev DESC', [$page]);
                 }
-                $user_reads = $sqlite->res2arr($res);
+                $user_reads = $sth->fetchAll();
                 $last_read_rev = NULL;
                 $last_read_timestamp = NULL;
                 foreach ($user_reads as $row) {

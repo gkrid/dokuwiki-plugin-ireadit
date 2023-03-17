@@ -6,6 +6,8 @@
  * @author  Szymon Olewniczak <dokuwiki@cosmocode.de>
  */
 
+use dokuwiki\plugin\sqlite\SQLiteDB;
+
 // must be run within Dokuwiki
 
 if (!defined('DOKU_INC')) {
@@ -14,7 +16,7 @@ if (!defined('DOKU_INC')) {
 
 class helper_plugin_ireadit_db extends DokuWiki_Plugin
 {
-    /** @var helper_plugin_sqlite */
+    /** @var SQLiteDB */
     protected $sqlite;
 
     /**
@@ -32,32 +34,36 @@ class helper_plugin_ireadit_db extends DokuWiki_Plugin
      */
     protected function init()
     {
-        /** @var helper_plugin_sqlite $sqlite */
-        $this->sqlite = plugin_load('helper', 'sqlite');
-        if (!$this->sqlite) {
-            if (defined('DOKU_UNITTEST')) {
-                throw new \Exception('Couldn\'t load sqlite.');
-            }
-            return;
-        }
+        /** @var SQLiteDB */
+        $this->sqlite = new SQLiteDB('ireadit', DOKU_PLUGIN . 'ireadit/db/');
 
-        if ($this->sqlite->getAdapter()->getName() != DOKU_EXT_PDO) {
-            if (defined('DOKU_UNITTEST')) {
-                throw new \Exception('Couldn\'t load PDO sqlite.');
-            }
-            $this->sqlite = null;
-            return;
-        }
-        $this->sqlite->getAdapter()->setUseNativeAlter(true);
 
-        // initialize the database connection
-        if (!$this->sqlite->init('ireadit', DOKU_PLUGIN . 'ireadit/db/')) {
-            if (defined('DOKU_UNITTEST')) {
-                throw new \Exception('Couldn\'t init sqlite.');
-            }
-            $this->sqlite = null;
-            return;
-        }
+//        /** @var helper_plugin_sqlite $sqlite */
+//        $this->sqlite = plugin_load('helper', 'sqlite');
+//        if (!$this->sqlite) {
+//            if (defined('DOKU_UNITTEST')) {
+//                throw new \Exception('Couldn\'t load sqlite.');
+//            }
+//            return;
+//        }
+//
+//        if ($this->sqlite->getAdapter()->getName() != DOKU_EXT_PDO) {
+//            if (defined('DOKU_UNITTEST')) {
+//                throw new \Exception('Couldn\'t load PDO sqlite.');
+//            }
+//            $this->sqlite = null;
+//            return;
+//        }
+//        $this->sqlite->getAdapter()->setUseNativeAlter(true);
+//
+//        // initialize the database connection
+//        if (!$this->sqlite->init('ireadit', DOKU_PLUGIN . 'ireadit/db/')) {
+//            if (defined('DOKU_UNITTEST')) {
+//                throw new \Exception('Couldn\'t init sqlite.');
+//            }
+//            $this->sqlite = null;
+//            return;
+//        }
     }
 
     /**
@@ -67,15 +73,16 @@ class helper_plugin_ireadit_db extends DokuWiki_Plugin
      */
     public function getDB($throw=true)
     {
-        global $conf;
-        $len = strlen($conf['metadir']);
-        if ($this->sqlite && $conf['metadir'] != substr($this->sqlite->getAdapter()->getDbFile(), 0, $len)) {
-            $this->init();
-        }
-        if(!$this->sqlite && $throw) {
-            throw new \Exception('The ireadit plugin requires the sqlite plugin. Please install and enable it.');
-        }
         return $this->sqlite;
+//        global $conf;
+//        $len = strlen($conf['metadir']);
+//        if ($this->sqlite && $conf['metadir'] != substr($this->sqlite->getAdapter()->getDbFile(), 0, $len)) {
+//            $this->init();
+//        }
+//        if(!$this->sqlite && $throw) {
+//            throw new \Exception('The ireadit plugin requires the sqlite plugin. Please install and enable it.');
+//        }
+//        return $this->sqlite;
     }
 
     /**
