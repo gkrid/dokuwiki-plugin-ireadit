@@ -88,7 +88,6 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
 
         /** @var helper_plugin_sqlite $sqlite */
         $sqlite = $data['sqlite'];
-        $db = $sqlite->getAdapter()->getDb();
 
         /** @var helper_plugin_ireadit $helper */
         $helper = plugin_load('helper', 'ireadit');
@@ -124,7 +123,6 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
 
         /** @var helper_plugin_sqlite $sqlite */
         $sqlite = $data['sqlite'];
-        $db = $sqlite->getAdapter()->getDb();
 
         $res = $sqlite->query('SELECT page,meta FROM meta');
         while ($row = $sqlite->res_fetch_assoc($res)) {
@@ -145,7 +143,7 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
 
         /** @var helper_plugin_sqlite $sqlite */
         $sqlite = $data['sqlite'];
-        $db = $sqlite->getAdapter()->getDb();
+        $db = $sqlite->getAdapter()->getPdo();
 
         /* @var \helper_plugin_ireadit $helper */
         $helper = plugin_load('helper', 'ireadit');
@@ -191,7 +189,7 @@ class action_plugin_ireadit_migration extends DokuWiki_Action_Plugin
 
         /** @var helper_plugin_sqlite $sqlite */
         $sqlite = $data['sqlite'];
-        $db = $sqlite->getAdapter()->getDb();
+        $db = $sqlite->getAdapter()->getPdo();
 
         /* @var \helper_plugin_ireadit $helper */
         $helper = plugin_load('helper', 'ireadit');

@@ -40,46 +40,42 @@ class helper_plugin_ireadit extends DokuWiki_Plugin
     }
 
     public function find_last_approved($id) {
-        /** @var helper_plugin_approve $approve_helper */
-        $approve_helper = plugin_load('helper', 'approve');
-        if ($approve_helper == null) {
+        /** @var helper_plugin_approve_db $approve_db */
+        $approve_db = plugin_load('helper', 'approve_db');
+        if ($approve_db == null) {
             msg('You must install approve plugin to use ireadit-approve integration.', -1);
             return null;
         }
 
-        try {
-            /** @var \helper_plugin_approve_db $db_helper */
-            $approve_db_helper = plugin_load('helper', 'approve_db');
-            $approve_sqlite = $approve_db_helper->getDB();
-        } catch (Exception $e) {
-            msg($e->getMessage(), -1);
-            return null;
-        }
-
-        return $approve_helper->find_last_approved($approve_sqlite, $id);
+        return $approve_db->getLastDbRev($id, 'approved');
     }
 
     public function use_approve_here($id) {
-        /** @var helper_plugin_approve $approve_helper */
-        $approve_helper = plugin_load('helper', 'approve');
-        if ($approve_helper == null) {
+        /** @var helper_plugin_approve_acl $approve_acl */
+        $approve_acl = plugin_load('helper', 'approve_acl');
+        if ($approve_acl == null) {
             msg('You must install approve plugin to use ireadit-approve integration.', -1);
             return null;
         }
 
-        try {
-            /** @var \helper_plugin_approve_db $db_helper */
-            $approve_db_helper = plugin_load('helper', 'approve_db');
-            $approve_sqlite = $approve_db_helper->getDB();
-        } catch (Exception $e) {
-            msg($e->getMessage(), -1);
-            return null;
-        }
-
-        return $approve_helper->use_approve_here($approve_sqlite, $id);
+        return $approve_acl->useApproveHere($id);
     }
 
     public function get_approved_revs($id) {
+        /** @var helper_plugin_approve_db $approve_db */
+        $approve_db = plugin_load('helper', 'approve_db');
+        if ($approve_db == null) {
+            msg('You must install approve plugin to use ireadit-approve integration.', -1);
+            return null;
+        }
+        $revs = $approve_db->getPageRevisions($id);
+        $approved_revs = array_filter($revs, function ($rev) {
+            return $rev['status'] == 'approved';
+        });
+        return array_map(function ($row) {
+            return (int) $row['rev'];
+        }, $approved_revs);
+
         try {
             /** @var \helper_plugin_approve_db $db_helper */
             $approve_db_helper = plugin_load('helper', 'approve_db');
