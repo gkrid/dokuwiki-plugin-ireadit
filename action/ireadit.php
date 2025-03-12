@@ -22,7 +22,7 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
         global $INFO, $ACT;
 
         if ($ACT != 'show') return;
-        if (!isset($INFO['meta']['plugin_ireadit=0.2'])) return;
+        if (empty($INFO['meta']['plugin_ireadit=0.2'])) return;
         $ireadit_data = $INFO['meta']['plugin_ireadit=0.2'];
 
         echo '<div';
@@ -86,7 +86,7 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
         global $INFO;
         if ($event->data != 'ireadit') return;
         if (!$INFO['client']) return;
-        if (!isset($INFO['meta']['plugin_ireadit=0.2'])) return;
+        if (empty($INFO['meta']['plugin_ireadit=0.2'])) return;
         $ireadit_data = $INFO['meta']['plugin_ireadit=0.2'];
 
         /** @var helper_plugin_ireadit $helper */
@@ -114,7 +114,7 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
     public function handle_pagesave_after(Doku_Event $event)
     {
         global $INFO;
-        if (!isset($INFO['meta']['plugin_ireadit=0.2'])) return;
+        if (empty($INFO['meta']['plugin_ireadit=0.2'])) return;
 
         if ($this->getConf('minor_edit_keeps_readers') &&
             $event->data['changeType'] == DOKU_CHANGE_TYPE_MINOR_EDIT) {
@@ -145,7 +145,7 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
      */
     public function add_readers_to_index(Doku_Event $event, $param) {
         $ireadit_data = p_get_metadata($event->data['page'], 'plugin_ireadit=0.2');
-        if (!$ireadit_data) return;
+        if (empty($ireadit_data)) return;
 
         /** @var helper_plugin_ireadit $helper */
         $helper = $this->loadHelper('ireadit');
