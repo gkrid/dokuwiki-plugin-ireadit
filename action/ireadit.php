@@ -145,8 +145,10 @@ class action_plugin_ireadit_ireadit extends DokuWiki_Action_Plugin
      */
     public function add_readers_to_index(Doku_Event $event, $param) {
         $ireadit_data = p_get_metadata($event->data['page'], 'plugin_ireadit=0.2');
-        if (empty($ireadit_data)) return;
-
+        if (empty($ireadit_data)) {
+            $event->data['metadata']['ireadit'] = [];
+            return;
+        }
         /** @var helper_plugin_ireadit $helper */
         $helper = $this->loadHelper('ireadit');
         $event->data['metadata']['ireadit'] = $helper->users_set($ireadit_data);
